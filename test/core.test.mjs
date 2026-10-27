@@ -107,4 +107,20 @@ await t('entradas invalidas', async () => {
   await fails(handle(db, { action: 'foo' }), 400);
 });
 
+await t('jogo solo: so um assento; segundo jogador assiste e ve so a visao publica', async () => {
+  const db = memDb();
+  const { code } = await handle(db, { action: 'create', game: 'paciencia', pid: A, name: 'Lucas' });
+  const jb = await handle(db, { action: 'join', code, pid: B, name: 'Ana' });
+  assert.strictEqual(jb.seat, null);
+  const row = db.rows.get(code);
+  for (const pile of row.state.tableau) for (const x of pile) if (!x.up) assert.ok(!JSON.stringify(row.view).includes(`"${x.c}"`), 'carta virada vazou na view publica');
+  assert.ok(!JSON.stringify(row.view).includes(row.state.stock[0]), 'monte vazou');
+  await fails(handle(db, { action: 'move', code, pid: B, move: { t: 'draw' } }), 403);
+  const v0 = row.version;
+  const r = await handle(db, { action: 'move', code, pid: A, move: { t: 'draw' } });
+  assert.strictEqual(r.room.version, v0 + 1);
+  assert.strictEqual(r.room.view.waste.length, 1);
+  await fails(handle(db, { action: 'move', code, pid: A, move: { t: 'move', from: { k: 'tab', i: 0, n: 0 }, to: { k: 'tab', i: 0 } } }), 400);
+});
+
 console.log(`${n} testes passaram`);

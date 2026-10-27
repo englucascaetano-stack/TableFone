@@ -181,3 +181,70 @@ button.ghost {
 }
 .piece.w.king::after { color: #8a5a1a; text-shadow: none; }
 .piece.movable { box-shadow: 0 0 0 2px rgba(217, 164, 65, 0.75), 0 2px 3px rgba(0, 0, 0, 0.45); cursor: pointer; }
+
+/* Paciencia */
+.solitaire {
+  --gap: 6px;
+  --cw: calc((min(100vw - 24px, 520px) - 6 * var(--gap)) / 7);
+  --ch: calc(var(--cw) * 1.4);
+  width: min(100vw - 24px, 520px);
+  margin: 0 auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.sol-top, .sol-tab { display: grid; grid-template-columns: repeat(7, var(--cw)); gap: var(--gap); }
+.sol-top { margin-bottom: 12px; height: var(--ch); }
+.sol-top .waste { grid-column: 2 / span 2; position: relative; height: var(--ch); }
+.sol-top .waste .card { position: absolute; top: 0; }
+.sol-top .waste .card.slot { position: static; width: var(--cw); }
+.sol-top .stock { grid-column: 1; }
+.col { position: relative; }
+.col .card { position: absolute; left: 0; }
+.col .card.slot { position: static; }
+
+.card {
+  position: relative;
+  width: var(--cw);
+  height: var(--ch);
+  border-radius: 6px;
+  background: #fbf8f1;
+  border: 1px solid #b9ad94;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  color: #1c1a17;
+  cursor: pointer;
+  overflow: hidden;
+}
+.card.red { color: #c43b2f; }
+.card .corner { position: absolute; top: 2px; left: 4px; font-weight: 700; font-size: calc(var(--cw) * 0.3); line-height: 1.1; }
+.card .pip { position: absolute; right: 4px; bottom: 2px; font-size: calc(var(--cw) * 0.5); line-height: 1; opacity: 0.85; }
+.card.under { filter: brightness(0.92); }
+.card.down {
+  background: repeating-linear-gradient(45deg, #2f4f7a 0 5px, #25405f 5px 10px);
+  border-color: #16273b;
+}
+.card.slot {
+  background: transparent;
+  border: 2px dashed rgba(241, 235, 224, 0.28);
+  box-shadow: none;
+  color: rgba(241, 235, 224, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--cw) * 0.5);
+}
+.card.stock[data-count]::after {
+  content: attr(data-count);
+  position: absolute;
+  inset: auto 3px 2px auto;
+  font-size: calc(var(--cw) * 0.28);
+  font-weight: 700;
+  color: #cfe0f5;
+}
+.card.sel { box-shadow: 0 0 0 3px var(--hint), 0 2px 4px rgba(0, 0, 0, 0.5); z-index: 2; }
+.card.dest { box-shadow: 0 0 0 3px #7bc67b; }
+.card.slot.dest { border-color: #7bc67b; background: rgba(123, 198, 123, 0.18); }
+.sol-controls { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+.sol-controls button:disabled { opacity: 0.4; cursor: default; }
+
+#opponent:empty, #me:empty { display: none; }

@@ -9,7 +9,7 @@ import { handle, HttpError } from '../supabase/functions/mesa/core.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const KEY = 'segredo';
-const rows = new Map();
+export const rows = new Map();
 let latency = 0;        // atraso artificial das jogadas (ms)
 let rejectNext = false; // faz a proxima jogada ser recusada
 const db = {

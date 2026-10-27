@@ -70,7 +70,8 @@ async function renderLibrary() {
       const title = document.createElement('strong');
       title.textContent = game.name;
       const desc = document.createElement('span');
-      const players = game.minPlayers === game.maxPlayers ? `${game.maxPlayers} jogadores` : `${game.minPlayers} a ${game.maxPlayers} jogadores`;
+      const plural = (n) => `${n} jogador${n > 1 ? 'es' : ''}`;
+      const players = game.minPlayers === game.maxPlayers ? plural(game.maxPlayers) : `${game.minPlayers} a ${plural(game.maxPlayers)}`;
       desc.textContent = `${game.description} ${players}.`;
       btn.append(title, desc);
       btn.addEventListener('click', () => createRoom(game.id));

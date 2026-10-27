@@ -4,7 +4,7 @@ Plataforma privada de jogos de tabuleiro para celular. Roda no navegador (Androi
 sem instalar nada nos aparelhos dos jogadores. Um aparelho (ou computador) roda o servidor;
 os outros abrem o endereço dele.
 
-Jogos na biblioteca: Dama (brasileira, 8x8).
+Jogos na biblioteca: Dama (brasileira, 8x8, 2 jogadores) e Paciência (Klondike, solo; outros jogadores assistem).
 
 ## Rodar
 
@@ -67,6 +67,7 @@ Variáveis de ambiente do `server.js`: `ACCESS_KEY` (senha), `PORT`, `DATA_FILE`
 ## Testes
 
     node test/damas.test.js        # regras da dama
+    node test/paciencia.test.js    # regras da paciencia
     node test/core.test.mjs        # logica da funcao da nuvem (banco em memoria)
 
 ## Limitações conhecidas
