@@ -14,6 +14,7 @@ Jogos na biblioteca:
 | Truco | 2 ou 4 (duplas) | Paulista: manilha pela vira, truco/seis/nove/doze, mão de onze |
 | Buraco | 2 ou 4 (duplas) | Só sequências, 2 baralhos + 4 coringas, canastras e 2 mortos |
 | Caxeta | 2 a 6 | 9 cartas, bate quem fechar jogos de 3+ cartas |
+| Coup | 2 a 6 | Blefe, desafios e bloqueios; 15 cartas de personagem |
 
 As regras de cada jogo, com as premissas adotadas, estão no começo de `games/<id>/game.js` e na tela de espera de cada jogo.
 
@@ -86,6 +87,7 @@ Variáveis de ambiente do `server.js`: `ACCESS_KEY` (senha), `PORT`, `DATA_FILE`
     node test/truco.test.js
     node test/buraco.test.js
     node test/caxeta.test.js
+    node test/coup.test.js
     node test/core.test.mjs        # logica da funcao da nuvem (banco em memoria)
 
 ## Limitações conhecidas
