@@ -1,0 +1,11 @@
+{
+  "name": "jogos-tabuleiro",
+  "version": "0.1.0",
+  "description": "Plataforma privada de jogos de tabuleiro para celular, via navegador",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/damas.test.js"
+  },
+  "engines": { "node": ">=16" }
+}

@@ -1,0 +1,35 @@
+# Publica a pasta public/ no GitHub Pages. A URL e a chave do Supabase vem das Variaveis do
+# repositorio (Settings > Secrets and variables > Actions > Variables), nao do codigo.
+name: Publicar telas
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gerar config.js
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ vars.SUPABASE_KEY }}
+        run: |
+          test -n "$SUPABASE_URL" && test -n "$SUPABASE_KEY" || { echo "Defina as Variaveis SUPABASE_URL e SUPABASE_KEY"; exit 1; }
+          node -e "require('fs').writeFileSync('public/config.js','window.MESA_CONFIG = '+JSON.stringify({supabaseUrl:process.env.SUPABASE_URL,supabaseKey:process.env.SUPABASE_KEY})+';\n')"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1c1a17">
+  <title>Mesa de Jogos</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="home" class="screen">
+    <h1>Mesa de Jogos</h1>
+
+    <label class="field">
+      <span>Seu nome</span>
+      <input id="name" type="text" maxlength="20" autocomplete="nickname" placeholder="Como quer ser chamado">
+    </label>
+
+    <label id="key-field" class="field" hidden>
+      <span>Senha do grupo</span>
+      <input id="key" type="password" autocomplete="off" placeholder="Senha combinada com o grupo">
+    </label>
+
+    <section>
+      <h2>Entrar em uma sala</h2>
+      <form id="join-form" class="row">
+        <input id="code" type="text" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO">
+        <button type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Criar partida</h2>
+      <div id="library" class="library"></div>
+    </section>
+
+    <p id="home-error" class="error" role="alert"></p>
+  </main>
+
+  <main id="room" class="screen" hidden>
+    <header class="room-head">
+      <button id="leave" class="ghost" type="button">Sair</button>
+      <div class="room-title">
+        <strong id="room-game"></strong>
+        <span id="room-code"></span>
+      </div>
+      <button id="share" class="ghost" type="button">Convidar</button>
+    </header>
+
+    <div id="opponent" class="player-bar"></div>
+    <div id="game-area"></div>
+    <div id="me" class="player-bar"></div>
+
+    <p id="status" class="status" role="status"></p>
+    <p id="room-error" class="error" role="alert"></p>
+    <div class="actions">
+      <button id="restart" type="button" hidden>Nova partida</button>
+    </div>
+    <p id="watchers" class="muted"></p>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="transport.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
