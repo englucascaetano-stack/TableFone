@@ -13,6 +13,7 @@ const countOf = (s, seat) => s.owner.filter((o) => o === seat).length;
 const prepared = (k = 3) => {
   let s = play(lobby(k), 0, { t: 'start' });
   while (s.phase === 'setup') s = play(s, s.turn, { t: 'place', plan: [[s.owner.indexOf(s.turn), s.pool]] });
+  s.objectives = s.objectives.map(() => ({ k: 'terr', n: 99 })); // objetivo inalcancavel: os testes controlam o fim
   return s;
 };
 const setRolls = (...vals) => { let i = 0; g._rng.roll = () => vals[i++ % vals.length]; };

@@ -21,7 +21,7 @@ t('distribuicao: 108 cartas conservadas, 7 por jogador', () => {
     const s = g._deal(players);
     const all = [...s.draw, ...s.discard, ...s.hands.flat()];
     assert.strictEqual(all.length, 108);
-    s.hands.forEach((h) => assert.strictEqual(h.length, players === 2 || true ? 7 : 7) );
+    s.hands.forEach((h, i) => assert.ok(h.length === 7 || (i === 0 && h.length === 9), `mao ${i}: ${h.length}`)); // carta inicial +2 faz o jogador 0 comprar 2
   }
 });
 
