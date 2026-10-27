@@ -18,6 +18,22 @@
 
 * { box-sizing: border-box; }
 
+/* Celular: nada de puxar para recarregar, quicar a pagina, dar zoom por toque duplo ou selecionar texto ao segurar. */
+html, body {
+  overscroll-behavior: none;
+}
+body {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-text-size-adjust: 100%;
+}
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 html, body {
   margin: 0;
   background: var(--bg);

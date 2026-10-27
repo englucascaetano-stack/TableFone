@@ -272,3 +272,8 @@ async function start() {
 }
 
 start();
+
+// Permite instalar na tela inicial (abre em tela cheia). Falhas aqui nao afetam o jogo.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}

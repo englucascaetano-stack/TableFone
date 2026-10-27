@@ -121,7 +121,8 @@ function withHistory(state) {
   return next;
 }
 
-const sameMove = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// Compara origem/destino pelos campos (nao pelo texto): o banco (jsonb) reordena as chaves dos objetos.
+const sameMove = (a, b) => !!a && !!b && typeof a === 'object' && typeof b === 'object' && a.k === b.k && a.i === b.i && a.n === b.n;
 
 function move(state, seat, req) {
   if (seat !== 0) return { error: 'Este jogo é solo.' };

@@ -114,4 +114,17 @@ t('qualquer partida embaralhada tem sempre a jogada de comprar ou alguma legal',
   for (let i = 0; i < 50; i++) { const s = g.setup(); assert.ok(g.view(s).legal.length >= 0); assert.ok(s.stock.length > 0); }
 });
 
+t('aceita a jogada com as chaves em qualquer ordem (o banco jsonb reordena)', () => {
+  const s = base(); s.tableau[0] = T(['6H']); s.tableau[1] = T(['5S']); s.waste = ['5C'];
+  const reorder = (o) => Object.fromEntries(Object.keys(o).sort((a, b) => a.length - b.length || (a < b ? -1 : 1)).map((k) => [k, o[k]]));
+  const a = play(s, { t: 'move', from: reorder({ k: 'tab', i: 1, n: 0 }), to: reorder({ k: 'tab', i: 0 }) });
+  assert.strictEqual(a.tableau[0].length, 2);
+  const b = play(s, { t: 'move', from: { n: 0, i: 1, k: 'tab' }, to: { i: 0, k: 'tab' } });
+  assert.strictEqual(b.tableau[0].length, 2);
+  const c = play(s, { t: 'move', from: { k: 'waste' }, to: { i: 0, k: 'tab' } });
+  assert.strictEqual(c.tableau[0].length, 2);
+  assert.ok(g.move(s, 0, { t: 'move', from: { k: 'tab', i: 1, n: 1 }, to: { k: 'tab', i: 0 } }).error);   // n errado continua recusado
+  assert.ok(g.move(s, 0, { t: 'move', from: 'tab', to: null }).error);
+});
+
 console.log(`${n} testes passaram`);

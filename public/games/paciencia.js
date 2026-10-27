@@ -12,6 +12,8 @@
 
   let selected = null; // origem escolhida: { k, i?, n? }
   let seenVersion = null;
+  let pending = null; // jogada ja mostrada na tela, aguardando o servidor: { version, view }
+  let latest = null; // ultima chamada de render, para redesenhar se o servidor recusar
 
   const sameFrom = (a, b) => a && b && a.k === b.k && a.i === b.i && a.n === b.n;
   const sameTo = (a, b) => a.k === b.k && a.i === b.i;
@@ -40,15 +42,30 @@
     return el;
   };
 
+  // Mostra a jogada na hora. A carta de baixo da coluna so e virada quando o servidor responde.
+  function applyLocal(view, from, to) {
+    const next = JSON.parse(JSON.stringify(view));
+    let cards;
+    if (from.k === 'waste') cards = [next.waste.pop()];
+    else if (from.k === 'found') cards = [next.foundations[from.i].pop()];
+    else cards = next.tableau[from.i].splice(from.n).map((x) => x.c);
+    if (to.k === 'tab') next.tableau[to.i].push(...cards.map((c) => ({ c, up: true })));
+    else next.foundations[to.i].push(cards[0]);
+    next.moves += 1;
+    return next;
+  }
+
   function render(el, room, send) {
-    const v = room.view;
+    if (pending && pending.version !== room.version) pending = null; // chegou estado novo do servidor
+    latest = { el, room, send };
+    const v = pending ? pending.view : room.view;
     const seat = room.you.seat;
-    const canPlay = seat === 0 && !v.over;
+    const canPlay = seat === 0 && !v.over && !pending;
     if (room.version !== seenVersion) {
       seenVersion = room.version;
       selected = null;
     }
-    const legal = canPlay ? v.legal.filter((m) => m.from) : [];
+    const legal = canPlay ? room.view.legal.filter((m) => m.from) : [];
     const fromSel = selected ? legal.filter((m) => sameFrom(m.from, selected)) : [];
     const dests = fromSel.map((m) => m.to);
     const isDest = (to) => dests.some((d) => sameTo(d, to));
@@ -56,13 +73,27 @@
 
     const redraw = () => render(el, room, send);
 
+    function sendMove(from, to) {
+      selected = null;
+      pending = { version: room.version, view: applyLocal(room.view, from, to) };
+      const mine = pending;
+      render(el, room, send);
+      // Se o servidor recusar (ou nao responder), volta ao estado oficial.
+      Promise.resolve(send({ t: 'move', from, to })).finally(() => {
+        if (pending === mine) {
+          pending = null;
+          if (latest) render(latest.el, latest.room, latest.send);
+        }
+      });
+    }
+
     function onSource(from) {
       if (!canPlay) return;
       if (sameFrom(selected, from)) {
         const options = legal.filter((m) => sameFrom(m.from, from));
         const choice = options.find((m) => m.to.k === 'found') || options[0];
         selected = null;
-        if (choice) send({ t: 'move', from: choice.from, to: choice.to });
+        if (choice) sendMove(choice.from, choice.to);
         else redraw();
         return;
       }
@@ -73,7 +104,7 @@
     function onDest(to) {
       const m = fromSel.find((x) => sameTo(x.to, to));
       selected = null;
-      if (m) send({ t: 'move', from: m.from, to: m.to });
+      if (m) sendMove(m.from, m.to);
       else redraw();
     }
 

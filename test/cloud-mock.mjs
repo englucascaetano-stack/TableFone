@@ -10,15 +10,25 @@ import { handle, HttpError } from '../supabase/functions/mesa/core.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const KEY = 'segredo';
 export const rows = new Map();
+
+// O Postgres guarda colunas jsonb com as chaves reordenadas (mais curtas primeiro, depois alfabetica).
+// O simulador faz o mesmo, para pegar codigo que dependa da ordem das chaves.
+const jsonb = (v) => {
+  if (Array.isArray(v)) return v.map(jsonb);
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(Object.keys(v).sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)).map((k) => [k, jsonb(v[k])]));
+  }
+  return v;
+};
 let latency = 0;        // atraso artificial das jogadas (ms)
 let rejectNext = false; // faz a proxima jogada ser recusada
 const db = {
   async getRoom(code) { const r = rows.get(code); return r ? structuredClone(r) : null; },
-  async insertRoom(r) { if (rows.has(r.code)) return false; rows.set(r.code, { ...structuredClone(r), version: 1 }); return true; },
+  async insertRoom(r) { if (rows.has(r.code)) return false; rows.set(r.code, { ...jsonb(structuredClone(r)), version: 1 }); return true; },
   async applyRoom(r) {
     const cur = rows.get(r.code);
     if (!cur || cur.version !== r.expected) return false;
-    rows.set(r.code, { ...cur, view: r.view, roster: r.roster, state: r.state, members: r.members, version: cur.version + 1 });
+    rows.set(r.code, { ...cur, view: jsonb(structuredClone(r.view)), roster: jsonb(structuredClone(r.roster)), state: jsonb(structuredClone(r.state)), members: jsonb(structuredClone(r.members)), version: cur.version + 1 });
     return true;
   },
   async purgeOld() {},
