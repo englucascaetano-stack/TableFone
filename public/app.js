@@ -172,16 +172,22 @@ function renderRoom(room) {
   const mySeat = room.you.seat;
   const bySeat = (seat) => room.players.find((p) => p.seat === seat);
 
+  // Jogos de 1 ou 2 lugares usam as barras de jogador; os demais desenham a lista de jogadores sozinhos.
+  const bars = room.game.maxPlayers <= 2;
+  $('#me').hidden = !bars;
+  $('#opponent').hidden = !bars;
   // Jogador aparece embaixo; espectadores veem a perspectiva do assento 0.
   const bottomSeat = mySeat === null ? 0 : mySeat;
-  playerBar($('#me'), bySeat(bottomSeat), room, mySeat);
-  playerBar($('#opponent'), bySeat(1 - bottomSeat), room, mySeat);
+  if (bars) {
+    playerBar($('#me'), bySeat(bottomSeat), room, mySeat);
+    playerBar($('#opponent'), bySeat(1 - bottomSeat), room, mySeat);
+  }
 
   const ui = window.GameUI[room.game.id];
   const status = ui.render($('#game-area'), room, (move) => sendMove(move));
 
-  const missing = room.players.length < room.game.maxPlayers;
-  $('#status').textContent = missing ? `Aguardando jogadores. Código da sala: ${room.code}` : status || '';
+  const waiting = room.game.maxPlayers === 2 && room.players.length < 2;
+  $('#status').textContent = waiting ? `Aguardando jogadores. Código da sala: ${room.code}` : status || '';
   $('#restart').hidden = mySeat === null;
   const others = room.spectators.map((s) => s.name).join(', ');
   if (mySeat === null) $('#watchers').textContent = 'Você está assistindo.';

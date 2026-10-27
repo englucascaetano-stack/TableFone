@@ -4,7 +4,18 @@ Plataforma privada de jogos de tabuleiro para celular. Roda no navegador (Androi
 sem instalar nada nos aparelhos dos jogadores. Um aparelho (ou computador) roda o servidor;
 os outros abrem o endereço dele.
 
-Jogos na biblioteca: Dama (brasileira, 8x8, 2 jogadores) e Paciência (Klondike, solo; outros jogadores assistem).
+Jogos na biblioteca:
+
+| Jogo | Jogadores | Observações |
+|---|---|---|
+| Dama | 2 | Brasileira 8x8, captura obrigatória e dama voadora |
+| Paciência | 1 (outros assistem) | Klondike, compra de 1 ou 3, desfazer |
+| Uno | 2 a 8 | Sem acumular +2/+4 |
+| Truco | 2 ou 4 (duplas) | Paulista: manilha pela vira, truco/seis/nove/doze, mão de onze |
+| Buraco | 2 ou 4 (duplas) | Só sequências, 2 baralhos + 4 coringas, canastras e 2 mortos |
+| Caxeta | 2 a 6 | 9 cartas, bate quem fechar jogos de 3+ cartas |
+
+As regras de cada jogo, com as premissas adotadas, estão no começo de `games/<id>/game.js` e na tela de espera de cada jogo.
 
 ## Rodar
 
@@ -61,6 +72,9 @@ Variáveis de ambiente do `server.js`: `ACCESS_KEY` (senha), `PORT`, `DATA_FILE`
 
 1. `games/<id>/game.js` exporta `{ id, name, description, minPlayers, maxPlayers, roles, setup, move, view }`.
    O servidor chama `move(state, seat, jogada)` e valida tudo; o cliente só envia a intenção.
+   `view(state)` é a visão pública (todos veem). Jogos com informação escondida (mão de cartas) também exportam
+   `viewFor(state, seat)`, a visão privada de cada jogador (`seat` nulo = espectador).
+   Jogos com sala de espera usam `acceptsSeat(state)`, `seatJoined(state, seat)` e `restart(state)`.
 2. `public/games/<id>.js` registra `window.GameUI[<id>] = { render(el, room, send) }`.
 3. Reinicie o servidor. O jogo aparece sozinho na biblioteca.
 
@@ -68,6 +82,10 @@ Variáveis de ambiente do `server.js`: `ACCESS_KEY` (senha), `PORT`, `DATA_FILE`
 
     node test/damas.test.js        # regras da dama
     node test/paciencia.test.js    # regras da paciencia
+    node test/uno.test.js          # uno, truco, buraco e caxeta: regras e partidas simuladas
+    node test/truco.test.js
+    node test/buraco.test.js
+    node test/caxeta.test.js
     node test/core.test.mjs        # logica da funcao da nuvem (banco em memoria)
 
 ## Limitações conhecidas

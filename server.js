@@ -105,6 +105,7 @@ function payloadFor(room, pid) {
     spectators: room.players.filter((p) => p.seat === null).map((p) => ({ name: p.name })),
     you: { seat: me ? me.seat : null, name: me ? me.name : null },
     view: game.view(room.state),
+    mine: typeof game.viewFor === 'function' ? game.viewFor(room.state, me ? me.seat : null) : undefined,
   };
 }
 
@@ -124,7 +125,8 @@ function joinRoom(room, pid, name) {
   } else {
     const taken = new Set(seatedPlayers(room).map((p) => p.seat));
     let seat = null;
-    for (let i = 0; i < game.maxPlayers; i++) {
+    const open = typeof game.acceptsSeat === 'function' ? game.acceptsSeat(room.state) : true;
+    for (let i = 0; open && i < game.maxPlayers; i++) {
       if (!taken.has(i)) {
         seat = i;
         break;
@@ -132,6 +134,7 @@ function joinRoom(room, pid, name) {
     }
     player = { id: pid, name, seat };
     room.players.push(player);
+    if (seat !== null && typeof game.seatJoined === 'function') room.state = game.seatJoined(room.state, seat);
   }
   return player;
 }
@@ -247,7 +250,7 @@ async function handleApi(req, res, url) {
       }
 
       if (action === 'restart') {
-        room.state = game.setup();
+        room.state = typeof game.restart === 'function' ? game.restart(room.state) : game.setup();
         room.version++;
         broadcast(room);
         return sendJson(res, 200, { ok: true });

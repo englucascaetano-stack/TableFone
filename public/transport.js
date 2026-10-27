@@ -58,12 +58,12 @@ window.createTransport = function createTransport({ pid, getKey }) {
       },
       async move(code, move) {
         const res = await call('move', { code, move });
-        if (res.room && active[code]) active[code](res.room); // mostra o resultado sem esperar o Realtime
+        if (res.room && active[code]) active[code](res.room, res.mine); // mostra o resultado sem esperar o Realtime
         return res;
       },
       async restart(code) {
         const res = await call('restart', { code });
-        if (res.room && active[code]) active[code](res.room);
+        if (res.room && active[code]) active[code](res.room, res.mine);
         return res;
       },
       async open(code, name, { onRoom }) {
@@ -72,12 +72,15 @@ window.createTransport = function createTransport({ pid, getKey }) {
         const myPk = joined.pk;
         let lastVersion = 0;
         let latest = null;
+        let mine = null; // visao privada (mao de cartas etc.), para jogos que a usam
+        let mineVersion = -1;
         let online = new Set();
         let closed = false;
+        let token = 0;
 
         const build = (row) => {
           const g = meta[row.game];
-          const mine = row.roster.find((m) => m.pk === myPk);
+          const me = row.roster.find((m) => m.pk === myPk);
           return {
             code: row.code,
             version: row.version,
@@ -87,15 +90,35 @@ window.createTransport = function createTransport({ pid, getKey }) {
               .sort((a, b) => a.seat - b.seat)
               .map((m) => ({ name: m.name, seat: m.seat, online: online.has(m.pk) })),
             spectators: row.roster.filter((m) => m.seat === null).map((m) => ({ name: m.name })),
-            you: { seat: mine ? mine.seat : null, name: mine ? mine.name : null },
+            you: { seat: me ? me.seat : null, name: me ? me.name : null },
             view: row.view,
+            mine,
           };
         };
         const emit = () => { if (!closed && latest) onRoom(build(latest)); };
-        const apply = (row) => {
+        // Aplica uma versao da sala. Em jogos com maos escondidas, busca antes a visao privada
+        // atual (ela depende da mesa), para nunca mostrar a mao de uma versao com a mesa de outra.
+        const apply = async (row, privateNow) => {
           if (!row || row.version < lastVersion) return;
           lastVersion = row.version;
           latest = row;
+          const mine_ = meta[row.game] && meta[row.game].hasPrivate;
+          if (mine_) {
+            if (privateNow !== undefined) {
+              mine = privateNow;
+              mineVersion = row.version;
+            } else if (mineVersion < row.version) {
+              const mine_token = ++token;
+              try {
+                const res = await call('mine', { code });
+                if (mine_token !== token || closed) return; // chegou versao mais nova: ela cuida da tela
+                mine = res.mine;
+                mineVersion = res.version;
+              } catch {
+                return;
+              }
+            }
+          }
           emit();
         };
         const resync = async () => {
@@ -103,12 +126,12 @@ window.createTransport = function createTransport({ pid, getKey }) {
           if (!closed) apply(data);
         };
 
-        apply(joined.room);
+        apply(joined.room, joined.mine);
         active[code] = apply;
 
         const channel = sb.channel(`sala:${code}`, { config: { presence: { key: myPk } } });
         channel
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` }, (p) => apply(p.new))
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` }, (p) => { apply(p.new); })
           .on('presence', { event: 'sync' }, () => {
             online = new Set(Object.keys(channel.presenceState()));
             emit();

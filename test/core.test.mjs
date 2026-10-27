@@ -27,7 +27,7 @@ const fails = async (p, status) => { try { await p; } catch (e) { assert.ok(e in
 
 await t('lista a biblioteca', async () => {
   const g = await handle(memDb(), { action: 'games' });
-  assert.strictEqual(g[0].id, 'damas');
+  assert.ok(g.some((x) => x.id === 'damas'));
 });
 
 await t('cria sala, entram 2 jogadores e 1 espectador', async () => {
@@ -121,6 +121,33 @@ await t('jogo solo: so um assento; segundo jogador assiste e ve so a visao publi
   assert.strictEqual(r.room.version, v0 + 1);
   assert.strictEqual(r.room.view.waste.length, 1);
   await fails(handle(db, { action: 'move', code, pid: A, move: { t: 'move', from: { k: 'tab', i: 0, n: 0 }, to: { k: 'tab', i: 0 } } }), 400);
+});
+
+await t('jogo com maos escondidas: lobby, comecar, visao privada, espectador tardio e acao mine', async () => {
+  const db = memDb();
+  const { code } = await handle(db, { action: 'create', game: 'uno', pid: A, name: 'Lucas' });
+  const jb = await handle(db, { action: 'join', code, pid: B, name: 'Ana' });
+  assert.strictEqual(jb.seat, 1); assert.strictEqual(jb.mine, null);                     // lobby: sem visao privada
+  await fails(handle(db, { action: 'move', code, pid: B, move: { t: 'start' } }), 400);   // so o anfitriao comeca
+  const started = await handle(db, { action: 'move', code, pid: A, move: { t: 'start' } });
+  assert.strictEqual(started.mine.hand.length, 7);
+  const row = db.rows.get(code);
+  assert.strictEqual(row.view.phase, 'playing');
+  for (const h of row.state.hands) for (const c of h) assert.ok(!JSON.stringify(row.view).replace(/"top":"[^"]+"/, '').includes(`"${c}"`), 'mao vazou na view publica');
+  const late = await handle(db, { action: 'join', code, pid: C, name: 'Pedro' });
+  assert.strictEqual(late.seat, null); assert.strictEqual(late.mine, null);               // entrou depois: assiste
+  const mb = await handle(db, { action: 'mine', code, pid: B });
+  assert.deepStrictEqual(mb.mine.hand, row.state.hands[1]); assert.strictEqual(mb.version, db.rows.get(code).version);
+  const mc = await handle(db, { action: 'mine', code, pid: C }); assert.strictEqual(mc.mine, null);
+  await fails(handle(db, { action: 'mine', code, pid: 'dddddddd-dddd' }), 403);
+  const rs = await handle(db, { action: 'restart', code, pid: B });                     // nova mao com os mesmos jogadores
+  assert.strictEqual(rs.mine.hand.length, 7); assert.strictEqual(db.rows.get(code).state.players, 2);
+});
+
+await t('lista de jogos informa quais usam visao privada', async () => {
+  const g = await handle(memDb(), { action: 'games' });
+  const by = Object.fromEntries(g.map((x) => [x.id, x.hasPrivate]));
+  assert.deepStrictEqual([by.damas, by.paciencia, by.uno, by.truco, by.buraco, by.caxeta], [false, false, true, true, true, true]);
 });
 
 console.log(`${n} testes passaram`);

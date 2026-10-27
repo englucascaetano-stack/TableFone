@@ -20,6 +20,7 @@ function list() {
     minPlayers: g.minPlayers,
     maxPlayers: g.maxPlayers,
     roles: g.roles,
+    hasPrivate: typeof g.viewFor === 'function',
   }));
 }
 

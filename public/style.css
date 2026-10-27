@@ -248,3 +248,113 @@ button.ghost {
 .sol-controls button:disabled { opacity: 0.4; cursor: default; }
 
 #opponent:empty, #me:empty { display: none; }
+
+/* ---- Jogos de varios jogadores (ui-kit) ---- */
+.lobby { max-width: 520px; margin: 0 auto; padding: 8px 4px; }
+.lobby h2 { margin: 4px 0 12px; font-size: 1.2rem; color: var(--text); }
+.lobby button { width: 100%; margin: 8px 0; }
+.lobby button:disabled { opacity: 0.4; }
+.rules { color: var(--muted); font-size: 0.88rem; padding-left: 18px; margin-top: 16px; }
+.rules li { margin: 4px 0; }
+.plist { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.pl { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 0.9rem; }
+.pl.turn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.pl.me .nm { font-weight: 700; }
+.pl .dot { width: 8px; height: 8px; border-radius: 50%; background: #5d574c; }
+.pl .dot.on { background: #7bc67b; }
+.pl .ex { color: var(--accent); font-weight: 700; }
+.pl.team0 { border-left: 4px solid #6fa8dc; }
+.pl.team1 { border-left: 4px solid #e08a6b; }
+
+/* Carta do baralho frances (.pc) */
+.pc {
+  --pw: 52px;
+  width: var(--pw);
+  height: calc(var(--pw) * 1.4);
+  border-radius: 6px;
+  background: #fbf8f1;
+  border: 1px solid #b9ad94;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex: none;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pc .rk { font-weight: 800; font-size: calc(var(--pw) * 0.42); }
+.pc .st { font-size: calc(var(--pw) * 0.5); }
+.pc.red { color: #c43b2f; }
+.pc.black { color: #1c1a17; }
+.pc.joker { color: #6a3fa0; }
+.pc.joker .st { font-size: calc(var(--pw) * 0.24); font-weight: 700; letter-spacing: 1px; }
+.pc.down { background: repeating-linear-gradient(45deg, #2f4f7a 0 5px, #25405f 5px 10px); border-color: #16273b; }
+.pc.sel { transform: translateY(-10px); box-shadow: 0 0 0 3px var(--hint), 0 3px 6px rgba(0, 0, 0, 0.5); z-index: 2; }
+.pc.small { --pw: 34px; }
+.pc.dim { opacity: 0.45; }
+
+/* Carta do Uno */
+.uno {
+  --uw: 52px;
+  width: var(--uw);
+  height: calc(var(--uw) * 1.5);
+  border-radius: 8px;
+  border: 3px solid #fbf8f1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #fff;
+  font-weight: 900;
+  font-size: calc(var(--uw) * 0.45);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+}
+.uno.r { background: #d23b3b; }
+.uno.y { background: #e8b923; color: #3a2d00; }
+.uno.g { background: #3a9d4f; }
+.uno.b { background: #3a6fd2; }
+.uno.w { background: conic-gradient(#d23b3b 0 25%, #e8b923 0 50%, #3a9d4f 0 75%, #3a6fd2 0); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+.uno.sel { transform: translateY(-10px); box-shadow: 0 0 0 3px #fff, 0 3px 6px rgba(0, 0, 0, 0.5); z-index: 2; }
+.uno.dim { opacity: 0.4; }
+.uno.small { --uw: 34px; }
+.uno.back { background: #1c1a17; border-color: #d23b3b; }
+.uno.back::after { content: 'UNO'; color: #e8b923; font-size: calc(var(--uw) * 0.28); letter-spacing: 1px; }
+
+/* Mao de cartas, mesa e controles */
+.hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 14px 4px 8px; }
+.hand.tight .pc, .hand.tight .uno { margin-left: -14px; }
+.hand.tight .pc:first-child, .hand.tight .uno:first-child { margin-left: 0; }
+.mesa { text-align: center; padding: 8px 0; }
+.mesa .row2 { display: flex; justify-content: center; align-items: center; gap: 14px; margin: 6px 0; }
+.mesa .lbl { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+.ctrls { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0; }
+.ctrls button { min-height: 44px; }
+.ctrls button:disabled { opacity: 0.4; }
+.colors { display: flex; gap: 10px; justify-content: center; margin: 10px 0; }
+.colors button { width: 52px; height: 52px; border-radius: 50%; border: 3px solid #fff; padding: 0; }
+.colors .r { background: #d23b3b; } .colors .y { background: #e8b923; } .colors .g { background: #3a9d4f; } .colors .b { background: #3a6fd2; }
+.logline { text-align: center; color: var(--muted); font-size: 0.88rem; min-height: 1.3em; }
+.score { display: flex; justify-content: center; gap: 18px; font-weight: 700; margin: 6px 0; }
+.score span.t0 { color: #6fa8dc; } .score span.t1 { color: #e08a6b; }
+
+/* Buraco: jogos baixados */
+.melds { margin: 8px 0; }
+.melds .lbl.t0 { color: #6fa8dc; } .melds .lbl.t1 { color: #e08a6b; }
+.meld { display: flex; align-items: center; gap: 2px; margin: 4px 0; padding: 4px; border-radius: 8px; overflow-x: auto; justify-content: center; border: 1px solid transparent; }
+.meld.target { border-color: var(--hint); background: rgba(217, 164, 65, 0.12); }
+.meld .pc { margin-left: -12px; }
+.meld .pc:first-child { margin-left: 0; }
+.meld.canastra { background: rgba(123, 198, 123, 0.1); }
+.pc.wildmark { outline: 2px dashed #a070d0; outline-offset: -3px; }
+.badge { margin-left: 6px; font-size: 0.72rem; font-weight: 700; color: var(--accent); text-transform: uppercase; }
+table.sum { margin: 10px auto; border-collapse: collapse; font-size: 0.88rem; }
+table.sum th, table.sum td { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: right; }
+table.sum th:first-child, table.sum td:first-child { text-align: left; color: var(--muted); }

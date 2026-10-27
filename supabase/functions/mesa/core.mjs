@@ -16,6 +16,8 @@ export class HttpError extends Error {
 const cleanName = (name) => String(name || '').replace(/\s+/g, ' ').trim().slice(0, 20) || 'Jogador';
 const toRoster = (members) => members.map(({ pk, name, seat }) => ({ pk, name, seat }));
 const publicRoom = (r) => ({ code: r.code, game: r.game, view: r.view, roster: r.roster, version: r.version });
+// Visao privada de quem joga (a mao de cartas, jogadas permitidas...). Espectadores recebem seat = null.
+const mineOf = (game, state, seat) => (typeof game.viewFor === 'function' ? game.viewFor(state, seat) : undefined);
 
 function newCode() {
   let code = '';
@@ -38,24 +40,30 @@ function gameOf(id) {
 }
 
 // Adiciona o jogador (ou atualiza o nome). Os primeiros ocupam as vagas; os demais assistem.
-function joinMember(members, game, pid, name) {
+// Jogos com fase de lobby so aceitam novos jogadores antes de comecar (game.acceptsSeat).
+function joinMember(members, game, pid, name, state) {
   const existing = members.find((m) => m.pid === pid);
   if (existing) {
-    if (existing.name === name) return { members, member: existing, changed: false };
+    if (existing.name === name) return { members, member: existing, changed: false, isNew: false };
     const next = members.map((m) => (m.pid === pid ? { ...m, name } : m));
-    return { members: next, member: next.find((m) => m.pid === pid), changed: true };
+    return { members: next, member: next.find((m) => m.pid === pid), changed: true, isNew: false };
   }
   const taken = new Set(members.filter((m) => m.seat !== null).map((m) => m.seat));
   let seat = null;
-  for (let i = 0; i < game.maxPlayers; i++) {
+  const open = typeof game.acceptsSeat === 'function' ? game.acceptsSeat(state) : true;
+  for (let i = 0; open && i < game.maxPlayers; i++) {
     if (!taken.has(i)) {
       seat = i;
       break;
     }
   }
   const member = { pid, pk: randomId(), name, seat };
-  return { members: [...members, member], member, changed: true };
+  return { members: [...members, member], member, changed: true, isNew: true };
 }
+
+// Avisa o jogo que alguem sentou (jogos com varios lugares contam os jogadores).
+const seated = (game, state, member) =>
+  member.seat !== null && typeof game.seatJoined === 'function' ? game.seatJoined(state, member.seat) : state;
 
 // Le a sala, aplica `change` e grava com controle de versao; repete se houver conflito.
 async function mutate(db, code, change) {
@@ -64,7 +72,7 @@ async function mutate(db, code, change) {
     if (!room) throw new HttpError(404, 'Sala não encontrada.');
     const game = gameOf(room.game);
     const out = change(room, game);
-    if (!out.write) return out.result(room);
+    if (!out.write) return out.result(room, room.state);
     const next = {
       code,
       expected: room.version,
@@ -74,7 +82,7 @@ async function mutate(db, code, change) {
       members: out.write.members,
     };
     if (await db.applyRoom(next)) {
-      return out.result({ ...room, view: next.view, roster: next.roster, version: room.version + 1 });
+      return out.result({ ...room, view: next.view, roster: next.roster, version: room.version + 1 }, next.state);
     }
   }
   throw new HttpError(409, 'A sala está muito movimentada. Tente de novo.');
@@ -88,6 +96,7 @@ export function listGames() {
     minPlayers: g.minPlayers,
     maxPlayers: g.maxPlayers,
     roles: g.roles,
+    hasPrivate: typeof g.viewFor === 'function',
   }));
 }
 
@@ -104,8 +113,10 @@ export async function handle(db, body) {
     case 'create': {
       requirePid(body.pid);
       const game = gameOf(body.game);
-      const state = game.setup();
-      const { members } = joinMember([], game, body.pid, cleanName(body.name));
+      let state = game.setup();
+      const first = joinMember([], game, body.pid, cleanName(body.name), state);
+      const members = first.members;
+      state = seated(game, state, first.member);
       for (let i = 0; i < 20; i++) {
         const newRoomCode = newCode();
         const ok = await db.insertRoom({
@@ -129,9 +140,15 @@ export async function handle(db, body) {
       checkCode();
       const name = cleanName(body.name);
       return mutate(db, code, (room, game) => {
-        const joined = joinMember(room.members, game, body.pid, name);
-        const result = (r) => ({ seat: joined.member.seat, pk: joined.member.pk, room: publicRoom(r) });
-        return joined.changed ? { write: { state: room.state, members: joined.members }, result } : { result };
+        const joined = joinMember(room.members, game, body.pid, name, room.state);
+        const state = joined.isNew ? seated(game, room.state, joined.member) : room.state;
+        const result = (r, st) => ({
+          seat: joined.member.seat,
+          pk: joined.member.pk,
+          room: publicRoom(r),
+          mine: mineOf(game, st, joined.member.seat),
+        });
+        return joined.changed ? { write: { state, members: joined.members }, result } : { result };
       });
     }
 
@@ -145,14 +162,25 @@ export async function handle(db, body) {
         if (me.seat === null) throw new HttpError(403, 'Espectadores não podem jogar.');
         let state;
         if (body.action === 'restart') {
-          state = game.setup();
+          state = typeof game.restart === 'function' ? game.restart(room.state) : game.setup();
         } else {
           const res = game.move(room.state, me.seat, body.move);
           if (res.error) throw new HttpError(400, res.error);
           state = res.state;
         }
-        return { write: { state, members: room.members }, result: (r) => ({ ok: true, room: publicRoom(r) }) };
+        return { write: { state, members: room.members }, result: (r, st) => ({ ok: true, room: publicRoom(r), mine: mineOf(game, st, me.seat) }) };
       });
+    }
+
+    case 'mine': {
+      // Visao privada atual (mao de cartas etc.) de quem pergunta; usada pelos outros jogadores a cada mudanca.
+      requirePid(body.pid);
+      checkCode();
+      const room = await db.getRoom(code);
+      if (!room) throw new HttpError(404, 'Sala não encontrada.');
+      const me = room.members.find((m) => m.pid === body.pid);
+      if (!me) throw new HttpError(403, 'Entre na sala primeiro.');
+      return { version: room.version, mine: mineOf(gameOf(room.game), room.state, me.seat) };
     }
 
     default:
