@@ -7,5 +7,6 @@ import g4 from './damas.mjs';
 import g5 from './paciencia.mjs';
 import g6 from './truco.mjs';
 import g7 from './uno.mjs';
+import g8 from './war.mjs';
 export const library = {};
-for (const g of [g0, g1, g2, g3, g4, g5, g6, g7]) library[g.id] = g;
+for (const g of [g0, g1, g2, g3, g4, g5, g6, g7, g8]) library[g.id] = g;

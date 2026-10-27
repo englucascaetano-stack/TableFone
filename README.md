@@ -15,6 +15,7 @@ Jogos na biblioteca:
 | Buraco | 2 ou 4 (duplas) | Só sequências, 2 baralhos + 4 coringas, canastras e 2 mortos |
 | Caxeta | 2 a 6 | 9 cartas, bate quem fechar jogos de 3+ cartas |
 | Coup | 2 a 6 | Blefe, desafios e bloqueios; 15 cartas de personagem |
+| War | 3 a 6 | Conquista do mundo: dados, cartas, objetivos secretos; mapa de 42 territórios |
 | Código Secreto | 4 a 8 | Duas equipes, espiões dão pistas de uma palavra; 332 palavras em português |
 
 As regras de cada jogo, com as premissas adotadas, estão no começo de `games/<id>/game.js` e na tela de espera de cada jogo.
@@ -98,6 +99,7 @@ Para um jogo suportar isso, exporte `waitingOn(state, auto)` (por quem o jogo es
     node test/caxeta.test.js
     node test/coup.test.js
     node test/codenames.test.js
+    node test/war.test.js
     node test/core.test.mjs        # logica da funcao da nuvem (banco em memoria)
 
 ## Limitações conhecidas
