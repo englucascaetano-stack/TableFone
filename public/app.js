@@ -45,7 +45,8 @@ function loadGameUI(id) {
   if (window.GameUI[id]) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `games/${id}.js`;
+    const v = (window.MESA_CONFIG || {}).assetVersion;
+    script.src = `games/${id}.js${v ? `?v=${v}` : ''}`;
     script.onload = resolve;
     script.onerror = () => reject(new Error('Não foi possível carregar a interface do jogo.'));
     document.head.appendChild(script);

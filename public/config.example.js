@@ -5,4 +5,5 @@ window.MESA_CONFIG = {
   supabaseUrl: '',
   supabaseKey: '',
   supabaseRegion: '', // regiao do banco, ex.: us-east-1 (opcional)
+  assetVersion: '', // preenchido no deploy: forca o celular a baixar arquivos novos
 };
