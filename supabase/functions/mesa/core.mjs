@@ -19,6 +19,32 @@ const publicRoom = (r) => ({ code: r.code, game: r.game, view: r.view, roster: r
 // Visao privada de quem joga (a mao de cartas, jogadas permitidas...). Espectadores recebem seat = null.
 const mineOf = (game, state, seat) => (typeof game.viewFor === 'function' ? game.viewFor(state, seat) : undefined);
 
+/* ---------- Piloto automatico (jogador dispensado) ----------
+   O estado guarda `auto` (assentos dispensados). Sempre que o jogo espera por um deles, o servidor faz uma
+   jogada segura em nome dele (game.autoMove) e segue, na mesma gravacao. O jogador volta ao controle quando
+   joga de novo, entra na sala outra vez ou toca em "Voltar". */
+const MAX_AUTO_STEPS = 300;
+const waitingOf = (game, state, auto) =>
+  typeof game.waitingOn === 'function' && state.phase !== 'lobby' ? game.waitingOn(state, auto) || [] : [];
+// Visao publica = visao do jogo + quem esta no piloto automatico + por quem o jogo espera.
+const publicView = (game, state) => ({ ...game.view(state), auto: state.auto || [], waiting: waitingOf(game, state, null) });
+
+function settle(game, state) {
+  let s = state;
+  const auto = state.auto || [];
+  if (!auto.length || typeof game.autoMove !== 'function') return s;
+  for (let i = 0; i < MAX_AUTO_STEPS; i++) {
+    const seats = waitingOf(game, s, auto).filter((x) => auto.includes(x));
+    if (!seats.length) break;
+    const req = game.autoMove(s, seats[0]);
+    if (!req) break;
+    const r = game.move(s, seats[0], req);
+    if (!r.state) break;
+    s = { ...r.state, auto };
+  }
+  return s;
+}
+
 function newCode() {
   let code = '';
   for (let i = 0; i < 4; i++) code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
@@ -76,7 +102,7 @@ async function mutate(db, code, change) {
     const next = {
       code,
       expected: room.version,
-      view: game.view(out.write.state),
+      view: publicView(game, out.write.state),
       roster: toRoster(out.write.members),
       state: out.write.state,
       members: out.write.members,
@@ -122,7 +148,7 @@ export async function handle(db, body) {
         const ok = await db.insertRoom({
           code: newRoomCode,
           game: game.id,
-          view: game.view(state),
+          view: publicView(game, state),
           roster: toRoster(members),
           state,
           members,
@@ -141,14 +167,16 @@ export async function handle(db, body) {
       const name = cleanName(body.name);
       return mutate(db, code, (room, game) => {
         const joined = joinMember(room.members, game, body.pid, name, room.state);
-        const state = joined.isNew ? seated(game, room.state, joined.member) : room.state;
+        let state = joined.isNew ? seated(game, room.state, joined.member) : room.state;
+        const wasAuto = !joined.isNew && joined.member.seat !== null && (state.auto || []).includes(joined.member.seat);
+        if (wasAuto) state = { ...state, auto: state.auto.filter((x) => x !== joined.member.seat) }; // voltou: reassume o controle
         const result = (r, st) => ({
           seat: joined.member.seat,
           pk: joined.member.pk,
           room: publicRoom(r),
           mine: mineOf(game, st, joined.member.seat),
         });
-        return joined.changed ? { write: { state, members: joined.members }, result } : { result };
+        return joined.changed || wasAuto ? { write: { state, members: joined.members }, result } : { result };
       });
     }
 
@@ -161,14 +189,41 @@ export async function handle(db, body) {
         if (!me) throw new HttpError(403, 'Entre na sala primeiro.');
         if (me.seat === null) throw new HttpError(403, 'Espectadores não podem jogar.');
         let state;
+        // quem estava no piloto automatico reassume ao jogar
+        const auto = (room.state.auto || []).filter((x) => x !== me.seat);
         if (body.action === 'restart') {
           state = typeof game.restart === 'function' ? game.restart(room.state) : game.setup();
         } else {
-          const res = game.move(room.state, me.seat, body.move);
+          const res = game.move({ ...room.state, auto }, me.seat, body.move);
           if (res.error) throw new HttpError(400, res.error);
           state = res.state;
         }
+        state = settle(game, { ...state, auto });
         return { write: { state, members: room.members }, result: (r, st) => ({ ok: true, room: publicRoom(r), mine: mineOf(game, st, me.seat) }) };
+      });
+    }
+
+    case 'dismiss':
+    case 'resume': {
+      requirePid(body.pid);
+      checkCode();
+      return mutate(db, code, (room, game) => {
+        const me = room.members.find((m) => m.pid === body.pid);
+        if (!me) throw new HttpError(403, 'Entre na sala primeiro.');
+        if (me.seat === null) throw new HttpError(403, 'Espectadores não podem fazer isso.');
+        const auto = room.state.auto || [];
+        const ok = (state) => ({ write: { state, members: room.members }, result: (r, st) => ({ ok: true, room: publicRoom(r), mine: mineOf(game, st, me.seat) }) });
+        if (body.action === 'resume') {
+          if (!auto.includes(me.seat)) return { result: (r, st) => ({ ok: true, room: publicRoom(r), mine: mineOf(game, st, me.seat) }) };
+          return ok({ ...room.state, auto: auto.filter((x) => x !== me.seat) });
+        }
+        const target = body.target;
+        if (typeof game.autoMove !== 'function') throw new HttpError(400, 'Este jogo não tem piloto automático.');
+        if (typeof room.state.players === 'number' && me.seat >= room.state.players) throw new HttpError(403, 'Você não está nesta partida.');
+        if (!Number.isInteger(target) || target === me.seat) throw new HttpError(400, 'Escolha outro jogador.');
+        if (auto.includes(target)) throw new HttpError(400, 'Esse jogador já foi dispensado.');
+        if (!waitingOf(game, room.state, null).includes(target)) throw new HttpError(400, 'O jogo não está esperando por esse jogador agora.');
+        return ok(settle(game, { ...room.state, auto: [...auto, target] }));
       });
     }
 

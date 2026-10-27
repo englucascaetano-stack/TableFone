@@ -334,6 +334,25 @@ function viewFor(state, seat) {
   };
 }
 
+// Piloto automatico: compra do monte e descarta a carta de maior valor que nao seja coringa (nunca baixa jogos).
+function waitingOn(state) {
+  return state.phase === 'playing' ? [state.turn] : [];
+}
+
+function autoMove(state, seat) {
+  if (state.stage === 'draw') return { t: 'draw' };
+  const hand = state.hands[seat].slice().sort((a, b) => {
+    const wa = a === 'JK' || rankOf(a) === '2' ? 1 : 0;
+    const wb = b === 'JK' || rankOf(b) === '2' ? 1 : 0;
+    return wa - wb || points(b) - points(a);
+  });
+  for (const card of hand) {
+    const r = move(state, seat, { t: 'discard', card });
+    if (r.state) return { t: 'discard', card };
+  }
+  return null;
+}
+
 module.exports = {
   id: 'buraco',
   name: 'Buraco',
@@ -348,6 +367,8 @@ module.exports = {
   move,
   view,
   viewFor,
+  waitingOn,
+  autoMove,
   _arrange: arrange,
   _points: points,
   _dealRound: dealRound,

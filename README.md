@@ -69,6 +69,14 @@ Limitações do plano gratuito do Supabase (a confirmar na página oficial): pro
 
 Variáveis de ambiente do `server.js`: `ACCESS_KEY` (senha), `PORT`, `DATA_FILE` (onde as partidas são gravadas).
 
+## Jogador ausente (piloto automático)
+
+Se o jogo fica esperando por alguém que sumiu, qualquer outro jogador pode tocar em **Dispensar** (aparece depois de
+~45 s de espera, ou se a pessoa está desconectada, com confirmação). O servidor passa a fazer jogadas simples e seguras
+por ela (passar, comprar, descartar, aceitar; nunca pede truco, não bate na Caxeta, não faz blefe). A pessoa reassume
+o controle ao tocar em **Voltar ao jogo**, ao jogar ou ao entrar na sala de novo.
+Para um jogo suportar isso, exporte `waitingOn(state, auto)` (por quem o jogo espera) e `autoMove(state, seat)` (uma jogada segura).
+
 ## Adicionar um jogo
 
 1. `games/<id>/game.js` exporta `{ id, name, description, minPlayers, maxPlayers, roles, setup, move, view }`.

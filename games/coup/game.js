@@ -372,6 +372,30 @@ function viewFor(state, seat) {
   return out;
 }
 
+// Piloto automatico: Renda (ou Golpe obrigatorio), passa nas respostas, perde a primeira carta, mantem as primeiras na troca.
+function waitingOn(state) {
+  if (state.phase !== 'playing' || !state.step) return [];
+  const st = state.step;
+  if (st.k === 'action') return [state.turn];
+  if (st.k === 'lose' || st.k === 'exchange') return [st.seat];
+  return st.waiting.slice();
+}
+
+function autoMove(state, seat) {
+  const st = state.step;
+  if (!st) return null;
+  if (st.k === 'action') {
+    if (state.coins[seat] >= 10) {
+      const target = others(state, seat)[0];
+      return target === undefined ? null : { t: 'action', action: 'coup', target };
+    }
+    return { t: 'action', action: 'income' };
+  }
+  if (st.k === 'lose') return { t: 'lose', index: 0 };
+  if (st.k === 'exchange') return { t: 'exchange', keep: Array.from({ length: state.hands[seat].length }, (_, i) => i) };
+  return { t: 'pass' };
+}
+
 module.exports = {
   id: 'coup',
   name: 'Coup',
@@ -386,6 +410,8 @@ module.exports = {
   move,
   view,
   viewFor,
+  waitingOn,
+  autoMove,
   _deal: deal,
   _actions: ACTIONS,
 };

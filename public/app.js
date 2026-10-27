@@ -192,7 +192,76 @@ function renderRoom(room) {
   const others = room.spectators.map((s) => s.name).join(', ');
   if (mySeat === null) $('#watchers').textContent = 'Você está assistindo.';
   else $('#watchers').textContent = others ? `Assistindo: ${others}` : '';
+  renderWaiting(room);
 }
+
+/* ---------- Jogador ausente: dispensar / voltar ---------- */
+const WAIT_BEFORE_DISMISS_MS = 45000; // o botao so aparece depois de esperar um pouco (ou se a pessoa esta desconectada)
+
+function renderWaiting(room) {
+  const box = $('#waiting');
+  if (!current || !room) return;
+  if (current.lastVersion !== room.version) {
+    current.lastVersion = room.version;
+    current.changedAt = Date.now();
+  }
+  const v = room.view;
+  const mySeat = room.you.seat;
+  box.innerHTML = '';
+  const waiting = Array.isArray(v.waiting) ? v.waiting : [];
+  const auto = Array.isArray(v.auto) ? v.auto : [];
+  if (v.over || mySeat === null || (!waiting.length && !auto.length)) {
+    box.hidden = true;
+    return;
+  }
+  const player = (seat) => room.players.find((p) => p.seat === seat) || { name: `Jogador ${seat + 1}`, online: false };
+  const add = (text, button) => {
+    const row = document.createElement('div');
+    row.className = 'wrow';
+    const t = document.createElement('span');
+    t.textContent = text;
+    row.appendChild(t);
+    if (button) row.appendChild(button);
+    box.appendChild(row);
+  };
+  const makeButton = (label, onClick) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ghost';
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  };
+
+  if (auto.includes(mySeat)) {
+    add('Você foi colocado no piloto automático porque o jogo estava esperando por você.', makeButton('Voltar ao jogo', async () => {
+      try { await transport.resume(current.code); } catch (err) { $('#room-error').textContent = err.message; }
+    }));
+  }
+  const others = auto.filter((x) => x !== mySeat).map((x) => player(x).name);
+  if (others.length) add(`No piloto automático: ${others.join(', ')}.`);
+
+  const longWait = Date.now() - (current.changedAt || Date.now()) >= WAIT_BEFORE_DISMISS_MS;
+  for (const seat of waiting) {
+    if (seat === mySeat || auto.includes(seat)) continue;
+    const p = player(seat);
+    const absent = !p.online;
+    const label = `Aguardando ${p.name}${absent ? ' (desconectado)' : ''}`;
+    if (absent || longWait) {
+      add(label, makeButton('Dispensar', async () => {
+        const ok = confirm(`Dispensar ${p.name}?\n\nO jogo passa a jogar por essa pessoa no piloto automático (jogadas seguras, sem arriscar) até ela voltar.`);
+        if (!ok) return;
+        try { await transport.dismiss(current.code, seat); } catch (err) { $('#room-error').textContent = err.message; }
+      }));
+    } else {
+      add(label);
+    }
+  }
+  box.hidden = box.childNodes.length === 0;
+}
+
+// Reavalia o painel de tempos em tempos (o botao aparece depois de alguns segundos de espera).
+setInterval(() => { if (current && current.room) renderWaiting(current.room); }, 5000);
 
 async function sendMove(move) {
   if (!current) return;

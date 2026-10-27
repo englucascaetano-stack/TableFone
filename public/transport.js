@@ -66,6 +66,16 @@ window.createTransport = function createTransport({ pid, getKey }) {
         if (res.room && active[code]) active[code](res.room, res.mine);
         return res;
       },
+      async dismiss(code, target) {
+        const res = await call('dismiss', { code, target });
+        if (res.room && active[code]) active[code](res.room, res.mine);
+        return res;
+      },
+      async resume(code) {
+        const res = await call('resume', { code });
+        if (res.room && active[code]) active[code](res.room, res.mine);
+        return res;
+      },
       async open(code, name, { onRoom }) {
         const meta = Object.fromEntries((await games()).map((g) => [g.id, g]));
         const joined = await call('join', { code, name });
@@ -194,6 +204,12 @@ window.createTransport = function createTransport({ pid, getKey }) {
     },
     async restart(code) {
       return post(`api/rooms/${code}/restart`, {});
+    },
+    async dismiss(code, target) {
+      return post(`api/rooms/${code}/dismiss`, { target });
+    },
+    async resume(code) {
+      return post(`api/rooms/${code}/resume`, {});
     },
     async open(code, name, { onRoom }) {
       await post(`api/rooms/${code}/join`, { name });

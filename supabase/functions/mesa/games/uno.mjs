@@ -272,6 +272,27 @@ function viewFor(state, seat) {
   };
 }
 
+// Piloto automatico: joga uma carta que sirva (evita coringa), senao compra e passa.
+function waitingOn(state) {
+  return state.phase === 'playing' ? [state.turn] : [];
+}
+
+function autoMove(state, seat) {
+  const v = viewFor(state, seat);
+  if (!v) return null;
+  if (v.playable.length) {
+    const card = v.playable.find((c) => colorOf(c) !== 'W') || v.playable[0];
+    if (colorOf(card) !== 'W') return { t: 'play', card };
+    const count = {};
+    for (const c of state.hands[seat]) if (colorOf(c) !== 'W') count[colorOf(c)] = (count[colorOf(c)] || 0) + 1;
+    const color = COLORS.slice().sort((a, b) => (count[b] || 0) - (count[a] || 0))[0];
+    return { t: 'play', card, color };
+  }
+  if (v.canDraw) return { t: 'draw' };
+  if (v.canPass) return { t: 'pass' };
+  return null;
+}
+
 export default {
   id: 'uno',
   name: 'Uno',
@@ -286,6 +307,8 @@ export default {
   move,
   view,
   viewFor,
+  waitingOn,
+  autoMove,
   _deal: deal,
   _canPlay: canPlay,
 };

@@ -87,6 +87,28 @@ function seatedPlayers(room) {
   return room.players.filter((p) => p.seat !== null);
 }
 
+/* Piloto automatico (jogador dispensado): ver supabase/functions/mesa/core.mjs, que tem a mesma logica. */
+const MAX_AUTO_STEPS = 300;
+const waitingOf = (game, state, auto) =>
+  typeof game.waitingOn === 'function' && state.phase !== 'lobby' ? game.waitingOn(state, auto) || [] : [];
+const publicView = (game, state) => ({ ...game.view(state), auto: state.auto || [], waiting: waitingOf(game, state, null) });
+
+function settle(game, state) {
+  let s = state;
+  const auto = state.auto || [];
+  if (!auto.length || typeof game.autoMove !== 'function') return s;
+  for (let i = 0; i < MAX_AUTO_STEPS; i++) {
+    const seats = waitingOf(game, s, auto).filter((x) => auto.includes(x));
+    if (!seats.length) break;
+    const req = game.autoMove(s, seats[0]);
+    if (!req) break;
+    const r = game.move(s, seats[0], req);
+    if (!r.state) break;
+    s = { ...r.state, auto };
+  }
+  return s;
+}
+
 function isOnline(room, pid) {
   for (const client of room.clients) if (client.pid === pid) return true;
   return false;
@@ -104,7 +126,7 @@ function payloadFor(room, pid) {
       .map((p) => ({ name: p.name, seat: p.seat, online: isOnline(room, p.id) })),
     spectators: room.players.filter((p) => p.seat === null).map((p) => ({ name: p.name })),
     you: { seat: me ? me.seat : null, name: me ? me.name : null },
-    view: game.view(room.state),
+    view: publicView(game, room.state),
     mine: typeof game.viewFor === 'function' ? game.viewFor(room.state, me ? me.seat : null) : undefined,
   };
 }
@@ -122,6 +144,9 @@ function joinRoom(room, pid, name) {
   let player = room.players.find((p) => p.id === pid);
   if (player) {
     player.name = name;
+    if (player.seat !== null && (room.state.auto || []).includes(player.seat)) {
+      room.state = { ...room.state, auto: room.state.auto.filter((x) => x !== player.seat) }; // voltou: reassume o controle
+    }
   } else {
     const taken = new Set(seatedPlayers(room).map((p) => p.seat));
     let seat = null;
@@ -241,16 +266,43 @@ async function handleApi(req, res, url) {
       const game = library[room.game];
 
       if (action === 'move') {
-        const result = game.move(room.state, player.seat, body.move);
+        const auto = (room.state.auto || []).filter((x) => x !== player.seat); // quem joga reassume o controle
+        const result = game.move({ ...room.state, auto }, player.seat, body.move);
         if (result.error) return sendJson(res, 400, { error: result.error });
-        room.state = result.state;
+        room.state = settle(game, { ...result.state, auto });
         room.version++;
         broadcast(room);
         return sendJson(res, 200, { ok: true });
       }
 
       if (action === 'restart') {
-        room.state = typeof game.restart === 'function' ? game.restart(room.state) : game.setup();
+        const auto = room.state.auto || [];
+        const fresh = typeof game.restart === 'function' ? game.restart(room.state) : game.setup();
+        room.state = settle(game, { ...fresh, auto });
+        room.version++;
+        broadcast(room);
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (action === 'resume') {
+        const auto = room.state.auto || [];
+        if (auto.includes(player.seat)) {
+          room.state = { ...room.state, auto: auto.filter((x) => x !== player.seat) };
+          room.version++;
+          broadcast(room);
+        }
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (action === 'dismiss') {
+        const auto = room.state.auto || [];
+        const target = body.target;
+        if (typeof game.autoMove !== 'function') return sendJson(res, 400, { error: 'Este jogo não tem piloto automático.' });
+        if (typeof room.state.players === 'number' && player.seat >= room.state.players) return sendJson(res, 403, { error: 'Você não está nesta partida.' });
+        if (!Number.isInteger(target) || target === player.seat) return sendJson(res, 400, { error: 'Escolha outro jogador.' });
+        if (auto.includes(target)) return sendJson(res, 400, { error: 'Esse jogador já foi dispensado.' });
+        if (!waitingOf(game, room.state, null).includes(target)) return sendJson(res, 400, { error: 'O jogo não está esperando por esse jogador agora.' });
+        room.state = settle(game, { ...room.state, auto: [...auto, target] });
         room.version++;
         broadcast(room);
         return sendJson(res, 200, { ok: true });

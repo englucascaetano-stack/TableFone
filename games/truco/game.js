@@ -283,6 +283,29 @@ function viewFor(state, seat) {
   return out;
 }
 
+// Piloto automatico: nunca pede truco; aceita pedidos; joga a carta mais fraca.
+// Quando a resposta pode vir de qualquer um da equipe, so age se TODA a equipe estiver ausente.
+function waitingOn(state, auto) {
+  if (state.phase !== 'playing') return [];
+  const teamSeats = (t) => Array.from({ length: state.players }, (_, i) => i).filter((i) => teamOf(i) === t);
+  const group = (seats) => {
+    if (!auto) return seats;
+    const present = seats.filter((i) => !auto.includes(i));
+    return present.length ? present : [seats[0]];
+  };
+  if (state.decision !== null) return group(teamSeats(state.decision));
+  if (state.call) return group(teamSeats(1 - state.call.team));
+  return [state.turn];
+}
+
+function autoMove(state, seat) {
+  if (state.decision !== null) return { t: 'onze', play: true };
+  if (state.call) return { t: 'accept' };
+  const manilha = manilhaRank(state.vira);
+  const hand = state.hands[seat].slice().sort((a, b) => strength(a, manilha) - strength(b, manilha));
+  return hand.length ? { t: 'play', card: hand[0] } : null;
+}
+
 module.exports = {
   id: 'truco',
   name: 'Truco',
@@ -297,6 +320,8 @@ module.exports = {
   move,
   view,
   viewFor,
+  waitingOn,
+  autoMove,
   _strength: strength,
   _manilhaRank: manilhaRank,
   _handResult: handResult,

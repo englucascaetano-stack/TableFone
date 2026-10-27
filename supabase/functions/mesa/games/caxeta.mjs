@@ -242,6 +242,33 @@ function viewFor(state, seat) {
   };
 }
 
+// Piloto automatico: compra do monte e descarta a carta menos util. Nunca bate (quem esta ausente nao vence).
+function waitingOn(state) {
+  return state.phase === 'playing' ? [state.turn] : [];
+}
+
+function usefulness(card, hand) {
+  if (card === 'JK') return 100;
+  let score = 0;
+  for (const other of hand) {
+    if (other === card || other === 'JK') continue;
+    if (rankOf(other) === rankOf(card) && suitOf(other) !== suitOf(card)) score += 2;
+    if (suitOf(other) === suitOf(card)) {
+      const d = Math.abs(posOf(rankOf(other), 'low') - posOf(rankOf(card), 'low'));
+      if (d === 1) score += 3;
+      else if (d === 2) score += 1;
+    }
+  }
+  return score;
+}
+
+function autoMove(state, seat) {
+  if (state.stage === 'draw') return { t: 'draw' };
+  const hand = state.hands[seat];
+  const worst = hand.slice().sort((a, b) => usefulness(a, hand) - usefulness(b, hand))[0];
+  return worst ? { t: 'discard', card: worst } : null;
+}
+
 export default {
   id: 'caxeta',
   name: 'Caxeta',
@@ -256,6 +283,8 @@ export default {
   move,
   view,
   viewFor,
+  waitingOn,
+  autoMove,
   _validGroup: validGroup,
   _partition: partition,
   _batidas: batidas,

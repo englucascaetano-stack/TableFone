@@ -164,6 +164,18 @@ function view(state) {
   };
 }
 
+// Piloto automatico (jogador dispensado): quem o jogo esta esperando e uma jogada segura.
+function waitingOn(state) {
+  return state.winner !== null || state.draw ? [] : [state.turn];
+}
+
+function autoMove(state, seat) {
+  const moves = legalMoves(state.board, seat);
+  if (!moves.length) return null;
+  const m = moves[Math.floor(Math.random() * moves.length)];
+  return { from: m.from, path: m.path };
+}
+
 module.exports = {
   id: 'damas',
   name: 'Dama',
@@ -174,6 +186,8 @@ module.exports = {
   setup,
   move,
   view,
+  waitingOn,
+  autoMove,
   // expostos para teste
   _legalMoves: legalMoves,
 };

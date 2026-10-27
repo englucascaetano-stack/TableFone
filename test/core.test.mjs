@@ -150,4 +150,78 @@ await t('lista de jogos informa quais usam visao privada', async () => {
   assert.deepStrictEqual([by.damas, by.paciencia, by.uno, by.truco, by.buraco, by.caxeta], [false, false, true, true, true, true]);
 });
 
+const P = ['aaaaaaaa-0000', 'bbbbbbbb-1111', 'cccccccc-2222', 'dddddddd-3333', 'eeeeeeee-4444', 'ffffffff-5555'];
+const open = async (db, game, k, startMove) => {
+  const { code } = await handle(db, { action: 'create', game, pid: P[0], name: 'J0' });
+  for (let i = 1; i < k; i++) await handle(db, { action: 'join', code, pid: P[i], name: 'J' + i });
+  await handle(db, { action: 'move', code, pid: P[0], move: startMove });
+  return code;
+};
+
+await t('dispensar: so quem trava a vez, por outro jogador; joga por ele e devolve a vez ao proximo', async () => {
+  const db = memDb();
+  const code = await open(db, 'uno', 3, { t: 'start' });
+  const turn = db.rows.get(code).view.turn;
+  const other = (turn + 1) % 3, third = (turn + 2) % 3;
+  assert.deepStrictEqual(db.rows.get(code).view.waiting, [turn]);
+  await fails(handle(db, { action: 'dismiss', code, pid: P[turn], target: turn }), 400);          // nao a si mesmo
+  await fails(handle(db, { action: 'dismiss', code, pid: P[other], target: third }), 400);        // o jogo nao espera por ele
+  await fails(handle(db, { action: 'dismiss', code, pid: P[other], target: 9 }), 400);
+  const v0 = db.rows.get(code).version;
+  const r = await handle(db, { action: 'dismiss', code, pid: P[other], target: turn });
+  assert.ok(r.ok); const row = db.rows.get(code);
+  assert.deepStrictEqual(row.view.auto, [turn]); assert.ok(row.version > v0);
+  assert.ok(!row.view.waiting.includes(turn));                                                    // o jogo ja nao espera por ele
+  assert.ok(row.view.counts[turn] >= 6);                                                          // ele jogou (ou comprou) em nome do ausente
+  await fails(handle(db, { action: 'dismiss', code, pid: P[third], target: turn }), 400);         // ja dispensado
+});
+
+await t('espectador nao dispensa; piloto devolve o controle ao jogar, ao entrar de novo e em "Voltar"', async () => {
+  const db = memDb();
+  const code = await open(db, 'uno', 3, { t: 'start' });
+  await handle(db, { action: 'join', code, pid: 'spec-viewer-0001', name: 'Visitante' });
+  const turn = db.rows.get(code).view.turn;
+  await fails(handle(db, { action: 'dismiss', code, pid: 'spec-viewer-0001', target: turn }), 403);
+  await handle(db, { action: 'dismiss', code, pid: P[(turn + 1) % 3], target: turn });
+  assert.deepStrictEqual(db.rows.get(code).view.auto, [turn]);
+  await handle(db, { action: 'resume', code, pid: P[turn] }); assert.deepStrictEqual(db.rows.get(code).view.auto, []);
+  const t2 = db.rows.get(code).view.waiting[0];
+  await handle(db, { action: 'dismiss', code, pid: P[(t2 + 1) % 3], target: t2 });
+  const auto = db.rows.get(code).view.auto; assert.strictEqual(auto.length, 1);
+  await handle(db, { action: 'join', code, pid: P[auto[0]], name: 'J' + auto[0] });                // reentrou na sala
+  assert.deepStrictEqual(db.rows.get(code).view.auto, []);
+});
+
+await t('jogo sem piloto (Paciencia) recusa; Truco so age quando TODA a equipe esta ausente', async () => {
+  const db = memDb();
+  const { code } = await handle(db, { action: 'create', game: 'paciencia', pid: P[0], name: 'Solo' });
+  assert.deepStrictEqual(db.rows.get(code).view.waiting, []);
+  await fails(handle(db, { action: 'dismiss', code, pid: P[0], target: 1 }), 400);
+});
+
+// Todos os lugares no piloto automatico: o jogo precisa seguir sozinho, sem erro e sem travar.
+for (const [game, k, startMove, mustEnd] of [
+  ['damas', 2, { t: 'noop' }, false], ['uno', 4, { t: 'start' }, true], ['truco', 2, { t: 'start', players: 2 }, true], ['truco', 4, { t: 'start', players: 4 }, true],
+  ['buraco', 2, { t: 'start', players: 2 }, true], ['buraco', 4, { t: 'start', players: 4 }, true], ['caxeta', 3, { t: 'start' }, false], ['coup', 5, { t: 'start' }, true],
+]) {
+  await t(`piloto automatico em todos os lugares: ${game} (${k} jogadores) segue sozinho`, async () => {
+    const db = memDb();
+    const { code } = await handle(db, { action: 'create', game, pid: P[0], name: 'J0' });
+    for (let i = 1; i < k; i++) await handle(db, { action: 'join', code, pid: P[i], name: 'J' + i });
+    if (game !== 'damas') await handle(db, { action: 'move', code, pid: P[0], move: startMove });
+    let guard = 0;
+    while (guard++ < 30) {
+      const v = db.rows.get(code).view;
+      if (v.over || !v.waiting.length) break;
+      const target = v.waiting.find((x) => !v.auto.includes(x)); if (target === undefined) break;
+      const by = P[(target + 1) % k];
+      await handle(db, { action: 'dismiss', code, pid: by, target });
+    }
+    const row = db.rows.get(code); const v = row.view;
+    if (mustEnd) assert.ok(v.over, `${game} nao terminou (espera ${JSON.stringify(v.waiting)}, auto ${JSON.stringify(v.auto)})`);
+    else assert.ok(game === 'damas' ? row.state.lastMove !== null : row.state.log !== 'Nova rodada.', 'o jogo nao andou');
+    assert.ok(v.auto.length >= 1);
+  });
+}
+
 console.log(`${n} testes passaram`);
