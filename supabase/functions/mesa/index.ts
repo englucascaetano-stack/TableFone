@@ -11,8 +11,9 @@ const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPAB
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-access-key',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-access-key, x-region',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '7200', // o navegador guarda a autorizacao e evita o pedido extra a cada jogada
 };
 
 const reply = (status: number, body: unknown) =>
@@ -28,11 +29,16 @@ function sameSecret(a: string, b: string): boolean {
 
 const db = {
   async getRoom(code: string) {
-    const { data: room, error } = await supabase.from('rooms').select('*').eq('code', code).maybeSingle();
+    // Uma unica consulta (sala + dados privados): cada ida ao banco custa tempo.
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('*, rooms_private(state, members)')
+      .eq('code', code)
+      .maybeSingle();
     if (error) throw error;
-    if (!room) return null;
-    const { data: priv, error: e2 } = await supabase.from('rooms_private').select('*').eq('code', code).maybeSingle();
-    if (e2) throw e2;
+    if (!data) return null;
+    const { rooms_private: embedded, ...room } = data;
+    const priv = Array.isArray(embedded) ? embedded[0] : embedded;
     if (!priv) return null;
     return { ...room, state: priv.state, members: priv.members };
   },

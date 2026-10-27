@@ -6,13 +6,18 @@
   let selected = null; // [r, c] da peca escolhida
   let path = []; // casas ja escolhidas numa captura em sequencia
   let seenVersion = null;
+  let pending = null; // jogada ja mostrada na tela, aguardando confirmacao do servidor: { version, board, last }
+  let latest = null; // ultima chamada de render, para redesenhar se o servidor recusar
 
   const same = (a, b) => a[0] === b[0] && a[1] === b[1];
 
   function render(el, room, send) {
     const v = room.view;
     const seat = room.you.seat;
-    const myTurn = seat !== null && !v.over && v.turn === seat;
+    latest = { el, room, send };
+    if (pending && pending.version !== room.version) pending = null; // chegou estado novo do servidor
+    const shown = pending ? pending.board : v.board;
+    const myTurn = !pending && seat !== null && !v.over && v.turn === seat;
     const flip = seat === 1;
 
     if (room.version !== seenVersion) {
@@ -27,7 +32,7 @@
       : [];
     const destinations = candidates.map((m) => m.path[path.length]).filter(Boolean);
     const movableFrom = selected ? [] : moves.map((m) => m.from);
-    const last = v.lastMove ? [v.lastMove.from, ...v.lastMove.path] : [];
+    const last = pending ? pending.last : v.lastMove ? [v.lastMove.from, ...v.lastMove.path] : [];
 
     el.innerHTML = '';
     const board = document.createElement('div');
@@ -45,7 +50,7 @@
         if (destinations.some((p) => same(p, [r, c]))) cell.classList.add('dest');
         if (path.some((p) => same(p, [r, c]))) cell.classList.add('via');
 
-        const p = v.board[r][c];
+        const p = shown[r][c];
         if (p) {
           const piece = document.createElement('div');
           piece.className = `piece ${p.toLowerCase()}${p === p.toUpperCase() ? ' king' : ''}`;
@@ -58,12 +63,26 @@
     }
     el.appendChild(board);
 
+    if (pending) return 'Enviando jogada…';
     if (v.winner !== null) return `Fim de jogo: ${room.players.find((p) => p.seat === v.winner)?.name || room.game.roles[v.winner]} venceu.`;
     if (v.draw) return 'Fim de jogo: empate.';
     if (seat === null) return `Vez das ${room.game.roles[v.turn]}.`;
     if (!myTurn) return 'Aguardando o adversário.';
     const mustCapture = v.legal.some((m) => m.captured.length > 0);
     return mustCapture ? 'Sua vez. Captura obrigatória.' : 'Sua vez.';
+  }
+
+  // Mostra a jogada na tela na hora; o servidor continua sendo quem decide.
+  function showLocally(room, move, captured) {
+    const board = room.view.board.map((row) => row.slice());
+    const [fr, fc] = move.from;
+    let piece = board[fr][fc];
+    board[fr][fc] = null;
+    for (const [cr, cc] of captured) board[cr][cc] = null;
+    const [lr, lc] = move.path[move.path.length - 1];
+    if ((piece === 'w' && lr === 0) || (piece === 'b' && lr === 7)) piece = piece.toUpperCase();
+    board[lr][lc] = piece;
+    pending = { version: room.version, board, last: [move.from, ...move.path] };
   }
 
   function onTap(r, c, moves, candidates, send, el, room) {
@@ -74,11 +93,23 @@
       const step = candidates.filter((m) => m.path[path.length] && same(m.path[path.length], pos));
       if (step.length) {
         path.push(pos);
-        if (step.some((m) => m.path.length === path.length)) {
+        const full = step.find((m) => m.path.length === path.length);
+        if (full) {
           const move = { from: selected, path };
           selected = null;
           path = [];
-          send(move);
+          showLocally(room, move, full.captured);
+          const mine = pending;
+          const status = render(el, room, send);
+          const statusEl = document.querySelector('#status');
+          if (statusEl) statusEl.textContent = status;
+          // Se o servidor recusar (ou nao responder), volta ao estado oficial.
+          Promise.resolve(send(move)).finally(() => {
+            if (pending === mine) {
+              pending = null;
+              if (latest) render(latest.el, latest.room, latest.send);
+            }
+          });
         } else {
           render(el, room, send);
         }

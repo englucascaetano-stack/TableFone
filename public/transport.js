@@ -22,13 +22,20 @@ window.createTransport = function createTransport({ pid, getKey }) {
     const base = cfg.supabaseUrl.replace(/\/$/, '');
     const sb = window.supabase.createClient(base, cfg.supabaseKey, { auth: { persistSession: false } });
     let gamesCache = null;
+    const active = {}; // codigo da sala -> funcao que aplica uma sala atualizada
 
     async function call(action, body) {
       let res;
       try {
         res = await fetch(`${base}/functions/v1/mesa`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: cfg.supabaseKey, 'x-access-key': getKey() },
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: cfg.supabaseKey,
+            'x-access-key': getKey(),
+            // Executa a funcao na mesma regiao do banco: evita varias idas e voltas entre continentes.
+            ...(cfg.supabaseRegion ? { 'x-region': cfg.supabaseRegion } : {}),
+          },
           body: JSON.stringify({ action, pid, ...body }),
         });
       } catch {
@@ -50,10 +57,14 @@ window.createTransport = function createTransport({ pid, getKey }) {
         return call('create', { game, name });
       },
       async move(code, move) {
-        return call('move', { code, move });
+        const res = await call('move', { code, move });
+        if (res.room && active[code]) active[code](res.room); // mostra o resultado sem esperar o Realtime
+        return res;
       },
       async restart(code) {
-        return call('restart', { code });
+        const res = await call('restart', { code });
+        if (res.room && active[code]) active[code](res.room);
+        return res;
       },
       async open(code, name, { onRoom }) {
         const meta = Object.fromEntries((await games()).map((g) => [g.id, g]));
@@ -93,6 +104,7 @@ window.createTransport = function createTransport({ pid, getKey }) {
         };
 
         apply(joined.room);
+        active[code] = apply;
 
         const channel = sb.channel(`sala:${code}`, { config: { presence: { key: myPk } } });
         channel
@@ -117,6 +129,7 @@ window.createTransport = function createTransport({ pid, getKey }) {
         return {
           close() {
             closed = true;
+            delete active[code];
             clearInterval(poll);
             document.removeEventListener('visibilitychange', onVisible);
             window.removeEventListener('online', resync);

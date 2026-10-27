@@ -4,4 +4,5 @@
 window.MESA_CONFIG = {
   supabaseUrl: '',
   supabaseKey: '',
+  supabaseRegion: '', // regiao do banco, ex.: us-east-1 (opcional)
 };

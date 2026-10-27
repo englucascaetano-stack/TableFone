@@ -10,6 +10,8 @@ import { handle, HttpError } from '../supabase/functions/mesa/core.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const KEY = 'segredo';
 const rows = new Map();
+let latency = 0;        // atraso artificial das jogadas (ms)
+let rejectNext = false; // faz a proxima jogada ser recusada
 const db = {
   async getRoom(code) { const r = rows.get(code); return r ? structuredClone(r) : null; },
   async insertRoom(r) { if (rows.has(r.code)) return false; rows.set(r.code, { ...structuredClone(r), version: 1 }); return true; },
@@ -58,9 +60,18 @@ export function start(port) {
       const send = (s, b) => { res.writeHead(s, { ...cors, 'Content-Type': 'application/json' }); res.end(JSON.stringify(b)); };
       if (req.headers['x-access-key'] !== KEY) return send(401, { error: 'Senha do grupo incorreta.' });
       let data = ''; for await (const c of req) data += c;
-      try { return send(200, await handle(db, JSON.parse(data || '{}'))); }
+      try {
+        const body = JSON.parse(data || '{}');
+        if (body.action === 'move') {
+          if (latency) await new Promise((r) => setTimeout(r, latency));
+          if (rejectNext) { rejectNext = false; return send(400, { error: 'Jogada recusada (teste).' }); }
+        }
+        return send(200, await handle(db, body));
+      }
       catch (e) { return e instanceof HttpError ? send(e.status, { error: e.message }) : send(500, { error: String(e) }); }
     }
+    if (url.pathname === '/mock/latency') { latency = Number(url.searchParams.get('ms')) || 0; res.writeHead(200, cors); return res.end('ok'); }
+    if (url.pathname === '/mock/reject-next') { rejectNext = true; res.writeHead(200, cors); return res.end('ok'); }
     if (url.pathname.startsWith('/mock/room/')) {
       const r = rows.get(url.pathname.split('/').pop());
       if (!r) { res.writeHead(404, cors); return res.end(); }

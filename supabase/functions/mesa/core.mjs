@@ -151,7 +151,7 @@ export async function handle(db, body) {
           if (res.error) throw new HttpError(400, res.error);
           state = res.state;
         }
-        return { write: { state, members: room.members }, result: () => ({ ok: true }) };
+        return { write: { state, members: room.members }, result: (r) => ({ ok: true, room: publicRoom(r) }) };
       });
     }
 
