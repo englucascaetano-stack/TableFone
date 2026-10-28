@@ -346,7 +346,11 @@ button.danger { background: transparent; color: var(--danger); border-color: var
 .pc.down { background: repeating-linear-gradient(45deg, #2f4f7a 0 5px, #25405f 5px 10px); border-color: #16273b; }
 .pc.sel { transform: translateY(-10px); box-shadow: 0 0 0 3px var(--hint), 0 3px 6px rgba(0, 0, 0, 0.5); z-index: 2; }
 .pc.small { --pw: 34px; }
-.pc.dim { opacity: 0.45; }
+.pc.dim { opacity: 0.6; filter: saturate(0.7); }
+.confirm .pc { --pw: 64px; }
+.sel-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1); margin-bottom: var(--s2); }
+.sel-strip .pc { --pw: 44px; }
+.ctrls .legend { flex-basis: 100%; }
 
 /* Carta do Uno */
 .uno {

@@ -150,9 +150,16 @@
         btn(`Pegar descarte (${v.discardCount})`, mine.canTake, () => send({ t: 'take' }), true);
       } else if (mine.canPlay) {
         const n = selected.size;
+        if (n) {
+          const strip = K.el('div', 'sel-strip');
+          picked().forEach((c) => strip.append(K.playingCard(c)));
+          el.append(K.el('div', 'legend', `${n} carta${n > 1 ? 's' : ''} selecionada${n > 1 ? 's' : ''}:`), strip);
+        }
         btn('Baixar jogo', n >= 3, () => { const cards = picked(); selected = new Set(); target = null; send({ t: 'meld', cards, target: null }); });
         btn('Adicionar ao jogo', n >= 1 && target !== null, () => { const cards = picked(); const tg = target; selected = new Set(); target = null; send({ t: 'meld', cards, target: tg }); }, true);
         btn('Descartar', n === 1, () => { const card = picked()[0]; selected = new Set(); target = null; send({ t: 'discard', card }); });
+        const why = !n ? 'Toque nas cartas da mão para escolher.' : n === 1 ? 'Descartar encerra o turno. Para baixar jogo, escolha 3 ou mais cartas (sequência do mesmo naipe).' : n < 3 ? 'Escolha 3 ou mais cartas para baixar um jogo novo.' : target === null ? 'Baixar jogo novo, ou toque num jogo da sua dupla para adicionar.' : 'Adicionar ao jogo marcado.';
+        ctrls.append(K.el('div', 'legend', why));
       }
       el.append(ctrls);
     }
@@ -161,7 +168,7 @@
     if (v.phase === 'roundEnd') return winTeam !== null ? `${teamName(winTeam)} venceu o jogo! ("Nova partida" zera o placar.)` : 'Rodada encerrada. "Nova partida" inicia a próxima rodada.';
     if (!inGame) return `Você está assistindo. Vez de ${nameOf(v.turn)}.`;
     if (v.turn !== seat) return `Vez de ${nameOf(v.turn)}.`;
-    return mine && mine.canPlay ? 'Baixe jogos e descarte uma carta.' : 'Sua vez: compre do monte ou pegue o descarte.';
+    return mine && mine.canPlay ? 'Sua vez: baixe jogos e termine descartando uma carta.' : 'Sua vez: compre do monte ou pegue o descarte.';
   }
 
   window.GameUI.buraco = { render };

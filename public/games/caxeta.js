@@ -99,11 +99,23 @@
         ctrls.append(b);
       };
       if (mine.canDraw) {
-        btn('Comprar', true, () => send({ t: 'draw' }));
+        btn('Comprar do monte', true, () => send({ t: 'draw' }));
         btn('Pegar descarte', mine.canTake, () => send({ t: 'take' }), true);
       } else if (mine.canDiscard) {
-        btn('Descartar', selected !== null, () => { const card = mine.hand[selected]; selected = null; send({ t: 'discard', card }); });
+        if (selected !== null) {
+          el.append(K.confirmBar({
+            preview: K.playingCard(mine.hand[selected]),
+            label: mine.canBater ? 'Descartar esta carta' : 'Descartar esta carta',
+            cancelLabel: 'Escolher outra',
+            note: mine.canBater ? 'Se as outras 9 já formam jogos, use Bater!' : undefined,
+            onConfirm: () => { const card = mine.hand[selected]; selected = null; send({ t: 'discard', card }); },
+            onCancel: () => { selected = null; render(el, room, send); },
+          }));
+        } else {
+          el.append(K.el('div', 'legend', 'Toque numa carta para descartá-la.'));
+        }
         btn('Bater!', mine.canBater, () => { const card = selected !== null ? mine.hand[selected] : undefined; selected = null; send({ t: 'bater', card }); });
+        if (!mine.canBater) ctrls.append(K.el('small', 'muted', 'Bater: só quando as 9 cartas restantes formarem jogos.'));
       }
       if (ctrls.childNodes.length) el.append(ctrls);
     }

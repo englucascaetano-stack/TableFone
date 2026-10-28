@@ -107,5 +107,22 @@ window.GameKit = (function () {
     return `Máximo de ${cfg.max} jogadores.`;
   }
 
-  return { el, playingCard, unoCard, playerList, lobby, SUIT, SUIT_NAME };
+  // Faixa de confirmacao de jogada: previa ampliada da carta + botao principal + "escolher outra".
+  function confirmBar({ preview, label, cancelLabel, onConfirm, onCancel, note }) {
+    const box = el('div', 'confirm');
+    if (preview) box.append(preview);
+    const side = el('div', 'confirm-btns');
+    const go = el('button', null, label);
+    go.type = 'button';
+    go.addEventListener('click', onConfirm);
+    const no = el('button', 'ghost', cancelLabel || 'Escolher outra');
+    no.type = 'button';
+    no.addEventListener('click', onCancel);
+    if (note) side.append(el('small', 'muted', note));
+    side.append(go, no);
+    box.append(side);
+    return box;
+  }
+
+  return { el, confirmBar, playingCard, unoCard, playerList, lobby, SUIT, SUIT_NAME };
 })();

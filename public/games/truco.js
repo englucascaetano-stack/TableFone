@@ -4,6 +4,8 @@
 
 (function () {
   const K = window.GameKit;
+  let chosen = null; // carta selecionada, aguardando confirmacao
+  let seenVersion = null;
 
   function render(el, room, send) {
     const v = room.view;
@@ -29,6 +31,8 @@
       });
     }
 
+    if (room.version !== seenVersion) { seenVersion = room.version; if (!mine || !mine.canPlay) chosen = null; }
+    if (mine && chosen !== null && !mine.hand.includes(chosen)) chosen = null;
     el.innerHTML = '';
     const inGame = seat !== null && seat < v.players;
     const nameOf = (s) => (room.players.find((p) => p.seat === s) || { name: `Jogador ${s + 1}` }).name;
@@ -85,7 +89,7 @@
         const yes = K.el('button', null, 'Jogar (vale 3)');
         yes.type = 'button';
         yes.addEventListener('click', () => send({ t: 'onze', play: true }));
-        const no = K.el('button', 'ghost', 'Correr');
+        const no = K.el('button', 'danger', 'Correr');
         no.type = 'button';
         no.addEventListener('click', () => send({ t: 'onze', play: false }));
         ctrls.append(yes, no);
@@ -94,18 +98,32 @@
 
       const hand = K.el('div', 'hand');
       mine.hand.forEach((card) => {
-        const c = K.playingCard(card, { dim: !mine.canPlay });
-        c.addEventListener('click', () => mine.canPlay && send({ t: 'play', card }));
+        const c = K.playingCard(card, { dim: !mine.canPlay, selected: chosen === card });
+        c.addEventListener('click', () => {
+          if (!mine.canPlay) return;
+          if (chosen === card) { chosen = null; send({ t: 'play', card }); return; }  // 2o toque confirma
+          chosen = card;
+          render(el, room, send);
+        });
         hand.append(c);
       });
       el.append(hand);
+      if (chosen && mine.canPlay) {
+        el.append(K.confirmBar({
+          preview: K.playingCard(chosen),
+          label: 'Jogar esta carta',
+          note: 'Jogada não pode ser desfeita.',
+          onConfirm: () => { const card = chosen; chosen = null; send({ t: 'play', card }); },
+          onCancel: () => { chosen = null; render(el, room, send); },
+        }));
+      }
 
       const ctrls = K.el('div', 'ctrls');
       if (mine.mustRespond) {
         const acc = K.el('button', null, 'Aceitar');
         acc.type = 'button';
         acc.addEventListener('click', () => send({ t: 'accept' }));
-        const run = K.el('button', 'ghost', 'Correr');
+        const run = K.el('button', 'danger', 'Correr');
         run.type = 'button';
         run.addEventListener('click', () => send({ t: 'run' }));
         ctrls.append(acc, run);
@@ -128,7 +146,8 @@
     if (!inGame) return `Você está assistindo. Vez de ${v.turn === null ? '' : nameOf(v.turn)}.`;
     if (v.decision !== null) return mine && mine.mustDecide ? 'Mão de onze: jogar ou correr?' : 'Aguardando a decisão da mão de onze.';
     if (v.call) return mine && mine.mustRespond ? `${teamName(v.call.team)} pede ${v.call.name}! Responda.` : 'Aguardando a resposta do pedido.';
-    return v.turn === seat ? 'Sua vez.' : `Vez de ${nameOf(v.turn)}.`;
+    if (v.turn === seat) return mine && mine.canTruco ? `Sua vez: toque numa carta e confirme, ou peça ${mine.nextName}.` : 'Sua vez: toque numa carta e confirme.';
+    return `Vez de ${nameOf(v.turn)}.`;
   }
 
   function row2Append(row, ...children) {

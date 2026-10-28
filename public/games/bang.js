@@ -210,7 +210,7 @@
 
       const ctrls = K.el('div', 'ctrls');
       const btn = (label, onClick, ghost, enabled = true) => {
-        const b = K.el('button', ghost ? 'ghost' : null, label);
+        const b = K.el('button', ghost === 'danger' ? 'danger' : ghost ? 'ghost' : null, label);
         b.type = 'button';
         b.disabled = !enabled;
         b.addEventListener('click', onClick);
@@ -261,7 +261,7 @@
           const c = mine.hand.find((x) => x.id === id);
           btn(`Usar ${NAME[c.type]} (${rk(c.rank)}${SUIT[c.suit]})`, () => send({ t: r.k === 'bang' ? 'missed' : 'bang', card: id }));
         });
-        btn(r.k === 'duel' ? 'Perder o duelo (-1 vida)' : 'Perder 1 vida', () => send({ t: 'pass' }), true);
+        btn(r.k === 'duel' ? 'Perder o duelo (-1 vida)' : 'Perder 1 vida', () => send({ t: 'pass' }), 'danger');
         }
       } else if (mine.mode === 'store') {
         mine.hand.forEach((c) => hand.append(cardEl(c)));
@@ -285,7 +285,7 @@
             btn('Confirmar: descartar 2 cartas', () => { const cards = sidMode; sidMode = null; send({ t: 'sid', cards }); }, false, sidMode.length === 2);
           } else btn('Sid Ketchum: descartar 2 cartas', () => { sidMode = []; redraw(); }, true);
         }
-        btn('Desistir', () => send({ t: 'giveup' }), true);
+        btn('Desistir', () => send({ t: 'giveup' }), 'danger');
       } else {
         mine.hand.forEach((c) => hand.append(cardEl(c)));
       }
@@ -321,7 +321,7 @@
     if (mine.mode === 'wait') return v.step ? `Aguardando ${nameOf(w)}.` : `Vez de ${nameOf(v.turn)}.`;
     if (mine.mode === 'draw') return 'Sua vez: compre as cartas.';
     if (mine.mode === 'play') return sel ? `${NAME[sel.type]}: ${DESC[sel.type]}` : 'Sua vez: jogue cartas ou encerre o turno.';
-    return 'Responda acima.';
+    return { respond: 'Sua resposta é necessária: veja as opções acima da mão.', store: 'Armazém: escolha uma carta.', kit: 'Kit Carlson: escolha a carta que volta ao baralho.', lucky: 'Lucky Duke: escolha uma das cartas reveladas.', dying: 'Você está morrendo: tome uma Cerveja ou desista.' }[mine.mode] || 'Responda acima.';
   }
 
   window.GameUI.bang = { render };
