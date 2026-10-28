@@ -54,7 +54,9 @@
     const score = K.el('div', 'score');
     score.append(K.el('span', 't0', `${teamName(0)}: ${v.totals[0]}`), K.el('span', 't1', `${teamName(1)}: ${v.totals[1]}`));
     wrap.append(score);
-    wrap.append(
+    // Modo tablet: jogadores, monte, mortos, historico e jogos do adversario ficam no tablet.
+    // O celular mostra o descarte, os jogos da propria dupla (para ampliar) e a mao.
+    if (!room.tableMode) wrap.append(
       K.playerList({ ...room, players }, v.turn, {
         teamOf: teamOfSeat,
         extra: (p) => `${v.counts[p.seat]} carta${v.counts[p.seat] === 1 ? '' : 's'}`,
@@ -69,12 +71,14 @@
     disc.append(v.discardTop ? K.playingCard(v.discardTop) : K.el('div', 'pc dim'), K.el('div', 'lbl', `Descarte: ${v.discardCount}`));
     const dead = K.el('div', 'lbl', `Mortos restantes: ${v.deadLeft}\n${teamName(0).split(' ')[0] || 'Eq.1'}: ${v.deadTaken[0] ? 'pegou' : 'não pegou'}\n${teamName(1).split(' ')[0] || 'Eq.2'}: ${v.deadTaken[1] ? 'pegou' : 'não pegou'}`);
     dead.style.whiteSpace = 'pre-line';
-    row.append(stock, disc, dead);
+    if (room.tableMode) row.append(disc);
+    else row.append(stock, disc, dead);
     wrap.append(row);
-    if (v.log) wrap.append(K.el('div', 'logline', v.log));
+    if (v.log && !room.tableMode) wrap.append(K.el('div', 'logline', v.log));
 
     // jogos baixados
     for (const t of [0, 1]) {
+      if (room.tableMode && t !== myTeam) continue;
       const box = K.el('div', 'melds');
       box.append(K.el('div', `lbl t${t}`, `Jogos de ${teamName(t)}`));
       if (!v.melds[t].length) box.append(K.el('div', 'lbl', '—'));
@@ -99,7 +103,7 @@
     el.append(wrap);
 
     // fim da rodada: resumo de pontos
-    if (v.phase === 'roundEnd' && v.roundScores) {
+    if (v.phase === 'roundEnd' && v.roundScores && !room.tableMode) {
       const tbl = K.el('table', 'sum');
       const rows = [
         ['', teamName(0), teamName(1)],

@@ -35,22 +35,41 @@ function accessKey() {
 
 const transport = window.createTransport({ pid, getKey: accessKey });
 
+// O tablet usa outro identificador (e outra conexao): o mesmo navegador pode ser jogador e tablet nos testes.
+let tpid = store.get('tpid');
+if (!tpid) {
+  tpid = makePid();
+  store.set('tpid', tpid);
+}
+let tableTransport = null;
+const tableTx = () => tableTransport || (tableTransport = window.createTransport({ pid: tpid, getKey: accessKey }));
+
 function userName() {
   const name = $('#name').value.trim();
   store.set('name', name);
   return name || 'Jogador';
 }
 
-function loadGameUI(id) {
-  if (window.GameUI[id]) return Promise.resolve();
+function loadScript(src, what) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     const v = (window.MESA_CONFIG || {}).assetVersion;
-    script.src = `games/${id}.js${v ? `?v=${v}` : ''}`;
+    script.src = `${src}${v ? `?v=${v}` : ''}`;
     script.onload = resolve;
-    script.onerror = () => reject(new Error('Não foi possível carregar a interface do jogo.'));
+    script.onerror = () => reject(new Error(`Não foi possível carregar ${what}.`));
     document.head.appendChild(script);
   });
+}
+
+function loadGameUI(id) {
+  if (window.GameUI[id]) return Promise.resolve();
+  return loadScript(`games/${id}.js`, 'a interface do jogo');
+}
+
+// Telas do modo tablet (so baixadas quando o tablet e usado).
+function loadTableUI() {
+  if (window.TableUI) return Promise.resolve();
+  return loadScript('tablet.js', 'a tela do tablet');
 }
 
 /* ---------- Lobby ---------- */
@@ -98,12 +117,15 @@ async function createRoom(gameId) {
 function showHome() {
   closeRoom();
   $('#room').hidden = true;
+  $('#table').hidden = true;
   $('#home').hidden = false;
+  document.body.classList.remove('is-tablet');
 }
 
 function closeRoom() {
   if (current && current.conn) current.conn.close();
   current = null;
+  releaseWake();
 }
 
 async function enterRoom(code) {
@@ -125,6 +147,8 @@ async function enterRoom(code) {
       $('#game-area').innerHTML = '';
     }
     if (current !== state) return;
+    // Com o tablet conectado, quem joga ve so a propria mao; sem ele, tudo segue como sempre.
+    room.tableMode = room.you.seat !== null && Boolean(room.tablet && room.tablet.online);
     state.room = room;
     renderRoom(room);
   };
@@ -143,6 +167,8 @@ async function enterRoom(code) {
     return;
   }
   $('#home').hidden = true;
+  $('#table').hidden = true;
+  document.body.classList.remove('is-tablet');
   $('#room').hidden = false;
   $('#room-code').textContent = code;
   $('#room-error').textContent = '';
@@ -193,7 +219,168 @@ function renderRoom(room) {
   if (mySeat === null) $('#watchers').textContent = 'Você está assistindo.';
   else $('#watchers').textContent = others ? `Assistindo: ${others}` : '';
   renderWaiting(room);
+  renderTabletPanel(room);
 }
+
+/* ---------- Modo tablet (celular): ativar, ver PIN, desativar ---------- */
+let tabletOpen = false;
+
+const TABLET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+function tabletLink(tcode) {
+  return `${location.origin}${location.pathname}#${tcode}`;
+}
+
+async function renderTabletPanel(room) {
+  const btn = $('#tablet-btn');
+  const box = $('#tablet-panel');
+  const seated = room.you.seat !== null;
+  btn.hidden = !seated;
+  const t = room.tablet;
+  btn.textContent = t ? (t.online ? 'Tablet: conectado' : 'Tablet: aguardando') : 'Tablet';
+  if (!seated || !tabletOpen) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = '';
+  const add = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    box.appendChild(e);
+    return e;
+  };
+  const act = (label, ghost, fn) => {
+    const b = add('button', ghost ? 'ghost' : '', label);
+    b.type = 'button';
+    b.addEventListener('click', async () => {
+      $('#room-error').textContent = '';
+      try { await fn(); } catch (err) { $('#room-error').textContent = err.message; }
+      if (current && current.room) renderTabletPanel(current.room);
+    });
+  };
+  if (!t) {
+    add('p', 'muted', 'Conecte um tablet para espelhar a mesa. Com ele ligado, os celulares mostram só a mão de cada jogador. Sem o tablet, tudo funciona como sempre.');
+    act('Ativar modo tablet', false, async () => { const r = await transport.tablet(room.code, 'get'); current.tabletCode = r.tcode; });
+    return;
+  }
+  if (!current.tabletCode) {
+    try { current.tabletCode = (await transport.tablet(room.code, 'get')).tcode; } catch { /* mostra sem codigo */ }
+  }
+  const tcode = current.tabletCode;
+  add('p', 'muted', 'No tablet, abra o site, vá em "Modo tablet" e digite o código do tablet (não é o código da sala):');
+  add('div', 'tb-pin', tcode || '------');
+  add('p', 'muted', t.online ? 'Tablet conectado. Seu celular mostra só a sua mão.' : 'Aguardando o tablet conectar. Enquanto isso, o celular segue mostrando a mesa inteira.');
+  if (tcode) {
+    act('Copiar link do tablet', true, async () => {
+      const url = tabletLink(tcode);
+      if (navigator.clipboard) await navigator.clipboard.writeText(url); else prompt('Copie o link:', url);
+    });
+  }
+  act('Gerar novo código', true, async () => {
+    if (!confirm('Gerar novo código? O tablet atual será desconectado.')) return;
+    current.tabletCode = (await transport.tablet(room.code, 'renew')).tcode;
+  });
+  act('Desativar modo tablet', true, async () => {
+    await transport.tablet(room.code, 'off');
+    current.tabletCode = null;
+  });
+}
+
+$('#tablet-btn').addEventListener('click', () => {
+  tabletOpen = !tabletOpen;
+  if (current && current.room) renderTabletPanel(current.room);
+});
+
+/* ---------- Modo tablet (aparelho da mesa): espelha a partida, sem jogar ---------- */
+let wakeLock = null;
+async function keepAwake() {
+  try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* sem suporte */ }
+}
+function releaseWake() {
+  try { if (wakeLock) wakeLock.release(); } catch { /* ignora */ }
+  wakeLock = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && current && current.isTable) keepAwake();
+});
+
+async function enterTable(tcode) {
+  closeRoom();
+  $('#home-error').textContent = '';
+  const state = { code: null, conn: null, uiId: null, room: null, isTable: true };
+  current = state;
+
+  const onRoom = async (room) => {
+    if (current !== state) return;
+    if (!room.you.tablet) {
+      location.hash = '';
+      $('#home-error').textContent = 'O modo tablet desta sala foi desativado ou o código foi renovado.';
+      return;
+    }
+    if (state.uiId !== room.game.id) {
+      try {
+        await Promise.all([loadGameUI(room.game.id), loadTableUI()]);
+      } catch (err) {
+        $('#table-error').textContent = err.message;
+        return;
+      }
+      state.uiId = room.game.id;
+      $('#table-area').innerHTML = '';
+    }
+    if (current !== state) return;
+    state.room = room;
+    renderTable(room);
+  };
+
+  try {
+    const conn = await tableTx().openTable(tcode, { onRoom });
+    if (current !== state) {
+      conn.close();
+      return;
+    }
+    state.conn = conn;
+  } catch (err) {
+    if (current === state) current = null;
+    location.hash = '';
+    $('#home-error').textContent = err.message;
+    return;
+  }
+  $('#home').hidden = true;
+  $('#room').hidden = true;
+  $('#table').hidden = false;
+  document.body.classList.add('is-tablet');
+  $('#table-code').textContent = tcode;
+  $('#table-error').textContent = '';
+  keepAwake();
+}
+
+function renderTable(room) {
+  $('#table-game').textContent = room.game.name;
+  const area = $('#table-area');
+  const T = window.TableUI && window.TableUI[room.game.id];
+  area.classList.toggle('plain', !T);
+  const watcher = { ...room, you: { seat: null, name: null }, mine: undefined, tableMode: false };
+  let status;
+  try {
+    // Jogos sem tela propria de tablet usam a tela normal em modo "assistindo", ampliada.
+    status = T ? T(area, room) : window.GameUI[room.game.id].render(area, watcher, () => {});
+  } catch (err) {
+    $('#table-error').textContent = 'Erro ao desenhar a mesa.';
+    console.error(err);
+  }
+  $('#table-status').textContent = String(status || '').replace(/Você está assistindo\.?\s*/, '');
+}
+
+$('#table-leave').addEventListener('click', () => { location.hash = ''; });
+$('#table-full').addEventListener('click', () => {
+  const root = document.documentElement;
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (root.requestFullscreen) root.requestFullscreen();
+    else $('#table-error').textContent = 'Este navegador não permite tela cheia. Use "Adicionar à tela inicial".';
+  } catch { /* ignora */ }
+});
 
 /* ---------- Jogador ausente: dispensar / voltar ---------- */
 const WAIT_BEFORE_DISMISS_MS = 45000; // o botao so aparece depois de esperar um pouco (ou se a pessoa esta desconectada)
@@ -285,6 +472,16 @@ $('#join-form').addEventListener('submit', (event) => {
   location.hash = code;
 });
 
+$('#table-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const tcode = $('#tcode').value.trim().toUpperCase();
+  if (!TABLET_RE.test(tcode)) {
+    $('#home-error').textContent = 'O código do tablet tem 6 caracteres (letras e números).';
+    return;
+  }
+  location.hash = tcode;
+});
+
 $('#leave').addEventListener('click', () => {
   location.hash = '';
 });
@@ -316,8 +513,9 @@ $('#share').addEventListener('click', async () => {
 });
 
 function route() {
-  const code = location.hash.replace('#', '').trim().toUpperCase();
-  if (/^[A-Z]{4}$/.test(code)) enterRoom(code);
+  const hash = location.hash.replace('#', '').trim().toUpperCase();
+  if (TABLET_RE.test(hash)) enterTable(hash);
+  else if (/^[A-Z]{4}$/.test(hash)) enterRoom(hash);
   else showHome();
 }
 

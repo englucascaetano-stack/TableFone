@@ -89,12 +89,15 @@
     const redraw = () => render(el, room, send);
 
     /* mesa */
-    const top = K.el('div', 'bg-top');
-    top.append(K.el('span', null, `Baralho: ${v.deck}`));
-    const disc = K.el('span', 'bg-disc', 'Descarte: ');
-    disc.append(v.top ? cardEl(v.top, { small: true }) : K.el('span', null, 'vazio'));
-    top.append(disc);
-    wrap.append(top);
+    // Modo tablet: baralho, descarte, cartas azuis dos outros e historico ficam no tablet.
+    if (!room.tableMode) {
+      const top = K.el('div', 'bg-top');
+      top.append(K.el('span', null, `Baralho: ${v.deck}`));
+      const disc = K.el('span', 'bg-disc', 'Descarte: ');
+      disc.append(v.top ? cardEl(v.top, { small: true }) : K.el('span', null, 'vazio'));
+      top.append(disc);
+      wrap.append(top);
+    }
 
     /* jogadores */
     const order = [];
@@ -114,7 +117,7 @@
       for (let h = 0; h < p.max; h++) hp.append(K.el('span', h < p.hp ? 'on' : 'off', '●'));
       hp.append(K.el('small', null, ` ${p.hand} carta${p.hand === 1 ? '' : 's'} · alcance ${p.range}${inGame && mine.dist[i] ? ` · dist. ${mine.dist[i]}` : ''}`));
       box.append(hp);
-      if (p.table.length) {
+      if (p.table.length && (!room.tableMode || i === seat)) {
         const tb = K.el('div', 'bg-table');
         p.table.forEach((c) => tb.append(cardEl(c, { small: true })));
         box.append(tb);
@@ -153,7 +156,7 @@
     }
 
     /* log */
-    if (v.log.length) {
+    if (v.log.length && !room.tableMode) {
       const lg = K.el('div', 'bg-log');
       v.log.slice(-6).forEach((l) => lg.append(K.el('div', null, fill(l))));
       wrap.append(lg);

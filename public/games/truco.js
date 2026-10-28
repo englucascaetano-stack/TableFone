@@ -38,7 +38,8 @@
     const score = K.el('div', 'score');
     score.append(K.el('span', 't0', `${teamName(0)}: ${v.points[0]}`), K.el('span', 't1', `${teamName(1)}: ${v.points[1]}`));
     wrap.append(score);
-    wrap.append(
+    // Modo tablet: jogadores, cartas jogadas e historico ficam no tablet; o celular mostra placar, vira e a mao.
+    if (!room.tableMode) wrap.append(
       K.playerList({ ...room, players: room.players.filter((p) => p.seat < v.players) }, v.turn, {
         teamOf: (s) => s % 2,
         extra: (p) => (p.seat === v.mao ? 'mão' : ''),
@@ -55,21 +56,21 @@
     wrap.append(info);
 
     // rodadas ja decididas
-    if (v.rounds.length) {
+    if (v.rounds.length && !room.tableMode) {
       const hist = K.el('div', 'lbl', 'Rodadas: ' + v.rounds.map((r, i) => `${i + 1}ª ${r.win === null ? 'empate' : teamName(r.win)}`).join(' · '));
       wrap.append(hist);
     }
     // cartas na mesa (rodada em andamento) ou ultima rodada
     const shown = v.table.length ? v.table : v.rounds.length ? v.rounds[v.rounds.length - 1].cards : [];
     const tbl = K.el('div', 'row2');
-    for (const p of shown) {
+    if (!room.tableMode) for (const p of shown) {
       const box = K.el('div');
       box.append(K.playingCard(p.card, { small: false }), K.el('div', 'lbl', nameOf(p.seat)));
       tbl.append(box);
     }
-    if (!shown.length) tbl.append(K.el('div', 'lbl', 'Mesa vazia'));
-    wrap.append(tbl);
-    if (v.log) wrap.append(K.el('div', 'logline', v.log));
+    if (!shown.length && !room.tableMode) tbl.append(K.el('div', 'lbl', 'Mesa vazia'));
+    if (!room.tableMode) wrap.append(tbl);
+    if (v.log && !room.tableMode) wrap.append(K.el('div', 'logline', v.log));
     el.append(wrap);
 
     if (inGame && mine) {

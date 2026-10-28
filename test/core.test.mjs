@@ -16,6 +16,10 @@ function memDb({ failApplyTimes = 0 } = {}) {
       rows.set(r.code, { ...cur, ...structuredClone({ view: r.view, roster: r.roster, state: r.state, members: r.members }), version: cur.version + 1 });
       return true;
     },
+    tcodes: new Map(),
+    async putTabletCode(c, room) { if (this.tcodes.has(c)) return false; this.tcodes.set(c, room); return true; },
+    async dropTabletCode(c) { this.tcodes.delete(c); },
+    async roomByTabletCode(c) { const r = this.tcodes.get(c); return r && rows.has(r) ? r : null; },
     async purgeOld() {},
   };
 }
@@ -223,5 +227,76 @@ for (const [game, k, startMove, mustEnd] of [
     assert.ok(v.auto.length >= 1);
   });
 }
+
+/* ---------- Modo tablet ---------- */
+const TC = /^[A-HJ-NP-Z2-9]{6}$/;
+await t('tablet: codigo proprio (6 caracteres, diferente da sala); roster publico sem pid nem codigo', async () => {
+  const db = memDb();
+  const { code } = await handle(db, { action: 'create', game: 'uno', pid: A, name: 'Lucas' });
+  await handle(db, { action: 'join', code, pid: B, name: 'Ana' });
+  await fails(handle(db, { action: 'tablet', code, pid: 'zzzzzzzz-zzzz' }), 403); // quem nao entrou
+  const on = await handle(db, { action: 'tablet', code, pid: A });
+  assert.match(on.tcode, TC);
+  assert.notStrictEqual(on.tcode.slice(0, 4), code);
+  const again = await handle(db, { action: 'tablet', code, pid: B });
+  assert.strictEqual(again.tcode, on.tcode, 'consultar nao muda o codigo');
+  const row = db.rows.get(code);
+  const pub = JSON.stringify([row.roster, row.view]);
+  assert.ok(!pub.includes(on.tcode) && !pub.includes(A), 'roster/view publicos nao podem ter o codigo nem pid');
+  assert.ok(row.roster.some((m) => m.tablet === true && m.seat === null));
+});
+
+await t('tablet: entra so com o codigo do tablet (sem a sala), nao ocupa vaga e nao joga', async () => {
+  const db = memDb();
+  const { code } = await handle(db, { action: 'create', game: 'damas', pid: A, name: 'Lucas' });
+  await handle(db, { action: 'join', code, pid: B, name: 'Ana' });
+  const { tcode } = await handle(db, { action: 'tablet', code, pid: A });
+  const T = 'tablet-pid-0001';
+  await fails(handle(db, { action: 'tablet_join', pid: T, tcode: 'ABCDEF' }), 404);
+  await fails(handle(db, { action: 'tablet_join', pid: T, tcode: code }), 404); // o codigo da sala nao serve de codigo de tablet
+  await fails(handle(db, { action: 'tablet_join', pid: A, tcode }), 400); // jogador nao vira tablet
+  const j = await handle(db, { action: 'tablet_join', pid: T, tcode: tcode.toLowerCase() });
+  assert.strictEqual(j.code, code);
+  assert.ok(j.pk && j.room.roster.find((m) => m.pk === j.pk && m.tablet));
+  assert.strictEqual(j.room.roster.filter((m) => m.seat !== null).length, 2, 'tablet nao ocupa vaga');
+  await fails(handle(db, { action: 'move', code, pid: T, move: { from: [2, 1], path: [[3, 0]] } }), 403);
+  await fails(handle(db, { action: 'tablet', code, pid: T }), 403);
+  const v0 = db.rows.get(code).version;
+  await handle(db, { action: 'tablet_join', pid: T, tcode });
+  assert.strictEqual(db.rows.get(code).version, v0, 'reentrar nao gera versao nova');
+  const m = await handle(db, { action: 'mine', code, pid: T });
+  assert.ok(m.version >= 1);
+});
+
+await t('tablet: renovar troca o codigo; desativar impede novas entradas', async () => {
+  const db = memDb();
+  const { code } = await handle(db, { action: 'create', game: 'uno', pid: A, name: 'Lucas' });
+  const a = await handle(db, { action: 'tablet', code, pid: A });
+  const b = await handle(db, { action: 'tablet', code, pid: A, op: 'renew' });
+  assert.notStrictEqual(a.tcode, b.tcode);
+  assert.strictEqual(db.rows.get(code).members.filter((m) => m.tablet).length, 1);
+  await fails(handle(db, { action: 'tablet_join', pid: 'tablet-pid-0002', tcode: a.tcode }), 404);
+  await handle(db, { action: 'tablet_join', pid: 'tablet-pid-0002', tcode: b.tcode });
+  const off = await handle(db, { action: 'tablet', code, pid: A, op: 'off' });
+  assert.strictEqual(off.tcode, null);
+  assert.ok(!db.rows.get(code).roster.some((m) => m.tablet));
+  await fails(handle(db, { action: 'tablet_join', pid: 'tablet-pid-0002', tcode: b.tcode }), 404);
+  const again = await handle(db, { action: 'tablet', code, pid: A, op: 'off' });
+  assert.strictEqual(again.tcode, null);
+  const re = await handle(db, { action: 'tablet', code, pid: A }); // reativar gera codigo novo
+  assert.match(re.tcode, TC);
+});
+
+await t('tablet: a partida continua igual com tablet pareado', async () => {
+  const db = memDb();
+  const { code } = await handle(db, { action: 'create', game: 'uno', pid: A, name: 'Lucas' });
+  await handle(db, { action: 'join', code, pid: B, name: 'Ana' });
+  const { tcode } = await handle(db, { action: 'tablet', code, pid: A });
+  await handle(db, { action: 'tablet_join', pid: 'tablet-pid-0003', tcode });
+  await handle(db, { action: 'move', code, pid: A, move: { t: 'start' } });
+  const row = db.rows.get(code);
+  assert.strictEqual(row.view.phase, 'playing');
+  assert.strictEqual(row.members.filter((m) => m.seat !== null).length, 2);
+});
 
 console.log(`${n} testes passaram`);

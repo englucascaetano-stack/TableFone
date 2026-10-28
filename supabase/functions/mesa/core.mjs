@@ -14,7 +14,8 @@ export class HttpError extends Error {
 }
 
 const cleanName = (name) => String(name || '').replace(/\s+/g, ' ').trim().slice(0, 20) || 'Jogador';
-const toRoster = (members) => members.map(({ pk, name, seat }) => ({ pk, name, seat }));
+// O roster e publico (Realtime): nunca leva o pid nem o codigo do tablet. O tablet aparece so como { tablet: true }.
+const toRoster = (members) => members.map(({ pk, name, seat, tablet }) => (tablet ? { pk, name, seat, tablet: true } : { pk, name, seat }));
 const publicRoom = (r) => ({ code: r.code, game: r.game, view: r.view, roster: r.roster, version: r.version });
 // Visao privada de quem joga (a mao de cartas, jogadas permitidas...). Espectadores recebem seat = null.
 const mineOf = (game, state, seat) => (typeof game.viewFor === 'function' ? game.viewFor(state, seat) : undefined);
@@ -49,6 +50,23 @@ function newCode() {
   let code = '';
   for (let i = 0; i < 4; i++) code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
   return code;
+}
+
+// Codigo proprio do tablet (6 caracteres, diferente do codigo da sala de 4 letras). Identifica a "mesa" da sala.
+const TABLET_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const TABLET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+function newTabletCode() {
+  const buf = new Uint32Array(6);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (n) => TABLET_ALPHABET[n % TABLET_ALPHABET.length]).join('');
+}
+
+function sameText(a, b) {
+  const x = String(a);
+  const y = String(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x.charCodeAt(i) || 0) ^ (y.charCodeAt(i) || 0);
+  return diff === 0;
 }
 
 function randomId() {
@@ -224,6 +242,64 @@ export async function handle(db, body) {
         if (auto.includes(target)) throw new HttpError(400, 'Esse jogador já foi dispensado.');
         if (!waitingOf(game, room.state, null).includes(target)) throw new HttpError(400, 'O jogo não está esperando por esse jogador agora.');
         return ok(settle(game, { ...room.state, auto: [...auto, target] }));
+      });
+    }
+
+    /* ---------- Modo tablet ----------
+       Um aparelho extra (o tablet) entra com um codigo PROPRIO, diferente do da sala, e passa a espelhar a mesa
+       (visao publica). Ele aparece na sala como "mesa": nao ocupa vaga e nao joga. So quem esta sentado ativa,
+       consulta, renova ou desativa o codigo. O banco guarda codigo -> sala (db.putTabletCode / roomByTabletCode). */
+    case 'tablet': {
+      requirePid(body.pid);
+      checkCode();
+      const op = body.op === 'off' || body.op === 'renew' ? body.op : 'get';
+      const room0 = await db.getRoom(code);
+      if (!room0) throw new HttpError(404, 'Sala não encontrada.');
+      const me0 = room0.members.find((m) => m.pid === body.pid);
+      if (!me0) throw new HttpError(403, 'Entre na sala primeiro.');
+      if (me0.seat === null) throw new HttpError(403, 'Só quem está jogando controla o tablet.');
+      const cur0 = room0.members.find((m) => m.tablet);
+      let fresh = null;
+      if (op === 'renew' || (op === 'get' && !cur0)) {
+        for (let i = 0; i < 20 && !fresh; i++) {
+          const c = newTabletCode();
+          if (await db.putTabletCode(c, code)) fresh = c;
+        }
+        if (!fresh) throw new HttpError(500, 'Não foi possível criar o código do tablet.');
+      }
+      const out = await mutate(db, code, (room) => {
+        const cur = room.members.find((m) => m.tablet);
+        const done = (tc) => (r) => ({ ok: true, tcode: tc, room: publicRoom(r) });
+        if (op === 'off') {
+          if (!cur) return { result: done(null) };
+          return { write: { state: room.state, members: room.members.filter((m) => !m.tablet) }, result: done(null) };
+        }
+        if (cur && !fresh) return { result: done(cur.tcode) };
+        const entry = { pid: null, pk: randomId(), name: 'Mesa', seat: null, tablet: true, tcode: fresh };
+        const members = cur ? room.members.map((m) => (m.tablet ? entry : m)) : [...room.members, entry];
+        return { write: { state: room.state, members }, result: done(fresh) };
+      });
+      // codigo antigo (renovado ou desativado) deixa de valer
+      if (cur0 && (op === 'off' || fresh)) await db.dropTabletCode(cur0.tcode);
+      return out;
+    }
+
+    case 'tablet_join': {
+      requirePid(body.pid);
+      const tcode = String(body.tcode || '').toUpperCase().trim();
+      if (!TABLET_RE.test(tcode)) throw new HttpError(404, 'Código do tablet incorreto ou desativado.');
+      const roomCode = await db.roomByTabletCode(tcode);
+      if (!roomCode) throw new HttpError(404, 'Código do tablet incorreto ou desativado.');
+      return mutate(db, roomCode, (room) => {
+        const t = room.members.find((m) => m.tablet);
+        if (!t || !sameText(t.tcode, tcode)) throw new HttpError(404, 'Código do tablet incorreto ou desativado.');
+        if (room.members.some((m) => m.pid === body.pid && !m.tablet)) {
+          throw new HttpError(400, 'Este navegador já está na sala como jogador. Abra o tablet em outro aparelho.');
+        }
+        const result = (r) => ({ code: roomCode, pk: t.pk, room: publicRoom(r) });
+        if (t.pid === body.pid) return { result };
+        const members = room.members.map((m) => (m.tablet ? { ...m, pid: body.pid } : m));
+        return { write: { state: room.state, members }, result };
       });
     }
 

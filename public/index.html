@@ -38,6 +38,15 @@
     </section>
 
     <section>
+      <h2>Modo tablet</h2>
+      <p class="muted">Use no tablet que fica na mesa. O código do tablet (diferente do código da sala) aparece no botão "Tablet" de uma sala aberta.</p>
+      <form id="table-form" class="row">
+        <input id="tcode" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO DO TABLET">
+        <button type="submit">Abrir</button>
+      </form>
+    </section>
+
+    <section>
       <h2>Criar partida</h2>
       <div id="library" class="library"></div>
     </section>
@@ -64,8 +73,21 @@
     <p id="room-error" class="error" role="alert"></p>
     <div class="actions">
       <button id="restart" type="button" hidden>Nova partida</button>
+      <button id="tablet-btn" class="ghost" type="button" hidden>Tablet</button>
     </div>
+    <div id="tablet-panel" class="tablet-panel" hidden></div>
     <p id="watchers" class="muted"></p>
+  </main>
+
+  <main id="table" class="tablet" hidden>
+    <header class="tb-head">
+      <button id="table-leave" class="ghost" type="button">Sair</button>
+      <div class="tb-title"><strong id="table-game"></strong><span id="table-code"></span></div>
+      <button id="table-full" class="ghost" type="button">Tela cheia</button>
+    </header>
+    <div id="table-area" class="tb-area"></div>
+    <p id="table-status" class="tb-status" role="status"></p>
+    <p id="table-error" class="error" role="alert"></p>
   </main>
 
   <script src="config.js"></script>

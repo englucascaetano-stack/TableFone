@@ -76,9 +76,24 @@ window.createTransport = function createTransport({ pid, getKey }) {
         if (res.room && active[code]) active[code](res.room, res.mine);
         return res;
       },
+      // Modo tablet: ativar/consultar/renovar/desativar o codigo do tablet (so quem joga) e entrar no tablet so com esse codigo.
+      async tablet(code, op) {
+        const res = await call('tablet', { code, op });
+        if (res.room && active[code]) active[code](res.room);
+        return res;
+      },
+      async openTable(tcode, { onRoom }) {
+        const joined = await call('tablet_join', { tcode });
+        return connect(joined.code, joined, onRoom, true);
+      },
       async open(code, name, { onRoom }) {
-        const meta = Object.fromEntries((await games()).map((g) => [g.id, g]));
         const joined = await call('join', { code, name });
+        return connect(code, joined, onRoom, false);
+      },
+    };
+
+    async function connect(code, joined, onRoom, isTable) {
+        const meta = Object.fromEntries((await games()).map((g) => [g.id, g]));
         const myPk = joined.pk;
         let lastVersion = 0;
         let latest = null;
@@ -99,11 +114,17 @@ window.createTransport = function createTransport({ pid, getKey }) {
               .filter((m) => m.seat !== null)
               .sort((a, b) => a.seat - b.seat)
               .map((m) => ({ name: m.name, seat: m.seat, online: online.has(m.pk) })),
-            spectators: row.roster.filter((m) => m.seat === null).map((m) => ({ name: m.name })),
-            you: { seat: me ? me.seat : null, name: me ? me.name : null },
+            spectators: row.roster.filter((m) => m.seat === null && !m.tablet).map((m) => ({ name: m.name })),
+            tablet: tabletOf(row),
+            you: { seat: me ? me.seat : null, name: me ? me.name : null, tablet: Boolean(isTable && me && me.tablet) },
             view: row.view,
             mine,
           };
+        };
+        // Tablet pareado: online = conectado agora (presenca). Os celulares so trocam de tela com ele online.
+        const tabletOf = (row) => {
+          const t = row.roster.find((m) => m.tablet);
+          return t ? { paired: true, online: online.has(t.pk) } : null;
         };
         const emit = () => { if (!closed && latest) onRoom(build(latest)); };
         // Aplica uma versao da sala. Em jogos com maos escondidas, busca antes a visao privada
@@ -112,7 +133,7 @@ window.createTransport = function createTransport({ pid, getKey }) {
           if (!row || row.version < lastVersion) return;
           lastVersion = row.version;
           latest = row;
-          const mine_ = meta[row.game] && meta[row.game].hasPrivate;
+          const mine_ = !isTable && meta[row.game] && meta[row.game].hasPrivate;
           if (mine_) {
             if (privateNow !== undefined) {
               mine = privateNow;
@@ -169,8 +190,7 @@ window.createTransport = function createTransport({ pid, getKey }) {
             sb.removeChannel(channel);
           },
         };
-      },
-    };
+    }
   }
 
   /* ---------- Local (servidor Node) ---------- */
@@ -211,12 +231,23 @@ window.createTransport = function createTransport({ pid, getKey }) {
     async resume(code) {
       return post(`api/rooms/${code}/resume`, {});
     },
+    async tablet(code, op) {
+      return post(`api/rooms/${code}/tablet`, { op });
+    },
+    async openTable(tcode, { onRoom }) {
+      const joined = await post('api/tablet-join', { tcode });
+      return connectLocal(joined.code, onRoom);
+    },
     async open(code, name, { onRoom }) {
       await post(`api/rooms/${code}/join`, { name });
-      const source = new EventSource(`api/rooms/${code}/events?pid=${pid}&key=${encodeURIComponent(getKey())}`);
-      source.onmessage = (event) => onRoom(JSON.parse(event.data));
-      const ping = setInterval(() => { fetch('api/ping').catch(() => {}); }, 4 * 60 * 1000);
-      return { close() { clearInterval(ping); source.close(); } };
+      return connectLocal(code, onRoom);
     },
   };
+
+  function connectLocal(code, onRoom) {
+    const source = new EventSource(`api/rooms/${code}/events?pid=${pid}&key=${encodeURIComponent(getKey())}`);
+    source.onmessage = (event) => onRoom(JSON.parse(event.data));
+    const ping = setInterval(() => { fetch('api/ping').catch(() => {}); }, 4 * 60 * 1000);
+    return { close() { clearInterval(ping); source.close(); } };
+  }
 };

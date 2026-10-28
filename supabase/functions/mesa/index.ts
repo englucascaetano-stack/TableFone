@@ -77,6 +77,23 @@ const db = {
     if (error) throw error;
     return data === true;
   },
+  // Codigo proprio do tablet -> sala (tabela tablet_codes; apagada junto com a sala).
+  async putTabletCode(tcode: string, roomCode: string) {
+    const { error } = await supabase.from('tablet_codes').insert({ code: tcode, room_code: roomCode });
+    if (error) {
+      if (error.code === '23505') return false; // codigo ja existe
+      throw error;
+    }
+    return true;
+  },
+  async dropTabletCode(tcode: string) {
+    await supabase.from('tablet_codes').delete().eq('code', tcode);
+  },
+  async roomByTabletCode(tcode: string) {
+    const { data, error } = await supabase.from('tablet_codes').select('room_code').eq('code', tcode).maybeSingle();
+    if (error) throw error;
+    return data ? (data.room_code as string) : null;
+  },
   async purgeOld(days: number) {
     const limit = new Date(Date.now() - days * 86400000).toISOString();
     await supabase.from('rooms').delete().lt('updated_at', limit);

@@ -10,6 +10,7 @@ import { handle, HttpError } from '../supabase/functions/mesa/core.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const KEY = 'segredo';
 export const rows = new Map();
+const presence = new Map(); // codigo da sala -> Map(chave -> ultimo batimento)
 
 // O Postgres guarda colunas jsonb com as chaves reordenadas (mais curtas primeiro, depois alfabetica).
 // O simulador faz o mesmo, para pegar codigo que dependa da ordem das chaves.
@@ -31,6 +32,10 @@ const db = {
     rows.set(r.code, { ...cur, view: jsonb(structuredClone(r.view)), roster: jsonb(structuredClone(r.roster)), state: jsonb(structuredClone(r.state)), members: jsonb(structuredClone(r.members)), version: cur.version + 1 });
     return true;
   },
+  tcodes: new Map(),
+  async putTabletCode(c, room) { if (this.tcodes.has(c)) return false; this.tcodes.set(c, room); return true; },
+  async dropTabletCode(c) { this.tcodes.delete(c); },
+  async roomByTabletCode(c) { const r = this.tcodes.get(c); return r && rows.has(r) ? r : null; },
   async purgeOld() {},
 };
 
@@ -41,17 +46,27 @@ window.supabase = { createClient(url) {
     from: () => ({ select: () => ({ eq: (_c, code) => ({ maybeSingle: async () => ({ data: await get(code) }) }) }) }),
     channel(name, opts) {
       const key = opts.config.presence.key; const code = name.split(':')[1];
-      let cb = null, sync = null, timer = null, last = 0;
+      let cb = null, sync = null, timer = null, last = 0, tracking = false, present = {}, presKey = '';
       const ch = {
         on(type, _f, fn) { if (type === 'postgres_changes') cb = fn; else sync = fn; return ch; },
-        presenceState() { return { [key]: [{}] }; },
-        track() { if (sync) sync(); },
+        presenceState() { return present; },
+        track() { tracking = true; },
         subscribe(f) {
           setTimeout(() => f('SUBSCRIBED'), 10);
-          timer = setInterval(async () => { const r = await get(code); if (r && r.version !== last) { last = r.version; cb && cb({ new: r }); } }, 150);
+          timer = setInterval(async () => {
+            const r = await get(code); if (r && r.version !== last) { last = r.version; cb && cb({ new: r }); }
+            // presenca compartilhada entre os clientes (o servidor do simulador guarda os batimentos recentes)
+            if (tracking) {
+              try {
+                const keys = await (await fetch(url + '/mock/presence/' + code + '/' + key, { method: 'POST' })).json();
+                const k = keys.join(',');
+                if (k !== presKey) { presKey = k; present = Object.fromEntries(keys.map((x) => [x, [{}]])); sync && sync(); }
+              } catch {}
+            }
+          }, 150);
           return ch;
         },
-        _stop() { clearInterval(timer); },
+        _stop() { clearInterval(timer); fetch(url + '/mock/presence/' + code + '/' + key, { method: 'DELETE' }).catch(() => {}); },
       };
       return ch;
     },
@@ -79,6 +94,15 @@ export function start(port) {
         return send(200, await handle(db, body));
       }
       catch (e) { return e instanceof HttpError ? send(e.status, { error: e.message }) : send(500, { error: String(e) }); }
+    }
+    if (url.pathname.startsWith('/mock/presence/')) {
+      const [, , , pcode, pkey] = url.pathname.split('/');
+      const m = presence.get(pcode) || new Map(); presence.set(pcode, m);
+      if (req.method === 'DELETE') m.delete(pkey); else m.set(pkey, Date.now());
+      const now = Date.now();
+      for (const [k, t] of m) if (now - t > 1200) m.delete(k);
+      res.writeHead(200, { ...cors, 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify([...m.keys()]));
     }
     if (url.pathname === '/mock/latency') { latency = Number(url.searchParams.get('ms')) || 0; res.writeHead(200, cors); return res.end('ok'); }
     if (url.pathname === '/mock/reject-next') { rejectNext = true; res.writeHead(200, cors); return res.end('ok'); }

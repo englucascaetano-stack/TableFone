@@ -82,6 +82,28 @@ por ela (passar, comprar, descartar, aceitar; nunca pede truco, não bate na Cax
 o controle ao tocar em **Voltar ao jogo**, ao jogar ou ao entrar na sala de novo.
 Para um jogo suportar isso, exporte `waitingOn(state, auto)` (por quem o jogo espera) e `autoMove(state, seat)` (uma jogada segura).
 
+## Modo tablet (mesa compartilhada)
+
+Um tablet (ou qualquer tela grande) pode ficar no meio da mesa espelhando a partida, enquanto cada celular mostra só a
+mão de quem joga. O modo só existe enquanto o tablet está conectado; sem ele, tudo funciona como antes.
+
+1. Com a sala aberta, quem está jogando toca em **Tablet** e depois em **Ativar modo tablet**. Aparece o **código do tablet**: 6 caracteres, próprio e diferente do código da sala. Com ele o sistema identifica a "mesa" daquela sala, que não é jogador.
+2. No tablet, abra o site, vá em **Modo tablet**, digite só o código do tablet (ou abra o link copiado, no formato `#CODIGO`) e toque em **Abrir**.
+3. Com o tablet online, os celulares passam a mostrar só a mão e os controles. Se o tablet sair ou desconectar, os celulares voltam a mostrar a mesa inteira sozinhos.
+4. **Gerar novo código** desconecta o tablet atual; **Desativar modo tablet** encerra o modo.
+
+O tablet só vê a parte pública da partida (nunca as mãos), não ocupa vaga e não joga: as jogadas continuam nos celulares.
+Usa um identificador próprio, então o mesmo navegador pode ser jogador e tablet nos testes.
+
+| Jogo | Tablet | Celular com tablet online |
+|---|---|---|
+| Uno, Truco, Caxeta, Buraco, BANG!, Coup | Mesa redonda com os jogadores em volta, monte, descarte, jogos baixados e histórico | Só a mão, os controles e o mínimo para decidir (carta do topo, descarte, jogos da própria dupla, alvos) |
+| Dama, Azul, Código Secreto, War, War II, Paciência | O tabuleiro ampliado, em modo "assistindo" | Igual ao normal (o toque no tabuleiro continua no celular) |
+
+Para dar uma tela própria de tablet a outro jogo, registre `window.TableUI[<id>] = (elemento, sala) => texto` em `public/tablet.js`;
+para o celular mostrar só a mão, use `room.tableMode` na tela do jogo (`public/games/<id>.js`).
+No servidor, o código do tablet fica só nos dados privados da sala e na tabela `tablet_codes` (código -> sala, sem acesso público); o `rooms` público só informa que existe uma mesa.
+
 ## Adicionar um jogo
 
 1. `games/<id>/game.js` exporta `{ id, name, description, minPlayers, maxPlayers, roles, setup, move, view }`.
@@ -106,7 +128,7 @@ Para um jogo suportar isso, exporte `waitingOn(state, auto)` (por quem o jogo es
     node test/codenames.test.js
     node test/war.test.js
     node test/war2.test.js
-    node test/core.test.mjs        # logica da funcao da nuvem (banco em memoria)
+    node test/core.test.mjs        # logica da funcao da nuvem (banco em memoria), inclui o modo tablet
 
 ## Limitações conhecidas
 

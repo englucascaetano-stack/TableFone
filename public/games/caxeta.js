@@ -38,7 +38,8 @@
     const nameOf = (s) => (room.players.find((p) => p.seat === s) || { name: `Jogador ${s + 1}` }).name;
     const wrap = K.el('div', 'mesa');
 
-    wrap.append(
+    // Modo tablet: jogadores, monte e historico ficam no tablet; o celular mostra o descarte (para decidir) e a mao.
+    if (!room.tableMode) wrap.append(
       K.playerList(room, v.turn, {
         extra: (p) => `${v.counts[p.seat]} carta${v.counts[p.seat] === 1 ? '' : 's'} · ${v.wins[p.seat] || 0} vit.`,
       })
@@ -48,13 +49,14 @@
     stock.append(K.playingCard('', { down: true }), K.el('div', 'lbl', `Monte: ${v.stockCount}`));
     const disc = K.el('div');
     disc.append(v.discardTop ? K.playingCard(v.discardTop) : K.el('div', 'pc dim'), K.el('div', 'lbl', 'Descarte'));
-    row.append(stock, disc);
+    if (room.tableMode) row.append(disc);
+    else row.append(stock, disc);
     wrap.append(row);
-    if (v.log) wrap.append(K.el('div', 'logline', v.log));
+    if (v.log && !room.tableMode) wrap.append(K.el('div', 'logline', v.log));
     el.append(wrap);
 
     // fim da rodada: maos reveladas e jogos de quem bateu
-    if (v.over && v.reveal) {
+    if (v.over && v.reveal && !room.tableMode) {
       const box = K.el('div', 'mesa');
       if (v.groups) {
         box.append(K.el('div', 'lbl', `Jogos de ${nameOf(v.winner)}:`));

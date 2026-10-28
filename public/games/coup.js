@@ -70,8 +70,10 @@
     const wrap = K.el('div', 'mesa coup');
 
     /* jogadores */
+    // Modo tablet: o placar da mesa fica no tablet; o celular so lista os jogadores ao escolher um alvo.
     const list = K.el('div', 'cplist');
     for (let s = 0; s < v.players; s++) {
+      if (room.tableMode && !pickTarget) break;
       const dead = v.influence[s] === 0;
       const targetable = pickTarget && mine && mine.targets && mine.targets.includes(s);
       const row = K.el('div', `cprow${s === v.turn ? ' turn' : ''}${dead ? ' dead' : ''}${s === seat ? ' me' : ''}${targetable ? ' targetable' : ''}`);
@@ -91,7 +93,8 @@
       }
       list.append(row);
     }
-    wrap.append(list);
+    if (list.childNodes.length) wrap.append(list);
+    else if (inGame) wrap.append(K.el('div', 'cpsit', `Suas moedas: ${v.coins[seat]} · Influência: ${v.influence[seat]}`));
 
     /* situacao */
     let situation = '';
@@ -109,9 +112,11 @@
       else if (st.k === 'exchange') situation = `${nameOf(st.seat)} está trocando cartas com o baralho.`;
     }
     wrap.append(K.el('div', 'cpsit', situation));
-    const ev = K.el('div', 'cplog');
-    for (const e of v.events.slice(-4)) ev.append(K.el('div', null, fmt(e)));
-    wrap.append(ev);
+    if (!room.tableMode) {
+      const ev = K.el('div', 'cplog');
+      for (const e of v.events.slice(-4)) ev.append(K.el('div', null, fmt(e)));
+      wrap.append(ev);
+    }
     el.append(wrap);
 
     /* minhas cartas e controles */

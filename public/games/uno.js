@@ -35,7 +35,8 @@
     el.innerHTML = '';
     const wrap = K.el('div', 'mesa');
 
-    wrap.append(
+    // Modo tablet: a mesa inteira fica no tablet; o celular mostra so a carta do topo (para escolher) e a mao.
+    if (!room.tableMode) wrap.append(
       K.playerList(room, v.turn, {
         extra: (p) => `${v.counts[p.seat]} carta${v.counts[p.seat] === 1 ? '' : 's'}${v.counts[p.seat] === 1 ? ' · UNO!' : ''}`,
       })
@@ -51,7 +52,8 @@
     topBox.append(K.el('div', 'lbl', `Cor atual: ${COLOR_NAME[v.color]}`));
     const dirBox = K.el('div', 'lbl', v.dir === 1 ? '↻' : '↺');
     dirBox.style.fontSize = '1.8rem';
-    row.append(pileBox, topBox, dirBox);
+    if (room.tableMode) row.append(topBox);
+    else row.append(pileBox, topBox, dirBox);
     wrap.append(row);
     // faixa com a cor atual
     const bar = K.el('div');
@@ -59,7 +61,7 @@
     wrap.append(bar);
 
     const who = (s) => room.players.find((p) => p.seat === s);
-    if (v.log) {
+    if (v.log && !room.tableMode) {
       const actor = v.lastSeat !== null && v.lastSeat !== undefined && /jogou/.test(v.log) ? who(v.lastSeat) : null;
       wrap.append(K.el('div', 'logline', actor ? `${actor.name} ${v.log}` : v.log));
     }

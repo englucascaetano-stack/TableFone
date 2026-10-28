@@ -114,6 +114,22 @@ function isOnline(room, pid) {
   return false;
 }
 
+// Modo tablet: aparelho extra que espelha a mesa (nao ocupa vaga). Ver supabase/functions/mesa/core.mjs.
+const tabletOf = (room) => room.players.find((p) => p.tablet);
+function tabletInfo(room) {
+  const t = tabletOf(room);
+  return t ? { paired: true, online: Boolean(t.id) && isOnline(room, t.id) } : null;
+}
+const TABLET_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const TABLET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+const newTabletCode = () => {
+  for (;;) {
+    let c = '';
+    for (let i = 0; i < 6; i++) c += TABLET_ALPHABET[crypto.randomInt(TABLET_ALPHABET.length)];
+    if (![...rooms.values()].some((r) => r.players.some((p) => p.tablet && p.tcode === c))) return c;
+  }
+};
+
 function payloadFor(room, pid) {
   const game = library[room.game];
   const me = room.players.find((p) => p.id === pid);
@@ -124,8 +140,9 @@ function payloadFor(room, pid) {
     players: seatedPlayers(room)
       .sort((a, b) => a.seat - b.seat)
       .map((p) => ({ name: p.name, seat: p.seat, online: isOnline(room, p.id) })),
-    spectators: room.players.filter((p) => p.seat === null).map((p) => ({ name: p.name })),
-    you: { seat: me ? me.seat : null, name: me ? me.name : null },
+    spectators: room.players.filter((p) => p.seat === null && !p.tablet).map((p) => ({ name: p.name })),
+    tablet: tabletInfo(room),
+    you: { seat: me ? me.seat : null, name: me ? me.name : null, tablet: Boolean(me && me.tablet) },
     view: publicView(game, room.state),
     mine: typeof game.viewFor === 'function' ? game.viewFor(room.state, me ? me.seat : null) : undefined,
   };
@@ -202,6 +219,24 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, list());
   }
 
+  // Tablet: entra so com o codigo proprio dele (6 caracteres), sem informar a sala.
+  if (req.method === 'POST' && parts[1] === 'tablet-join' && parts.length === 2) {
+    const body = await readJson(req);
+    if (!validPid(body.pid)) return sendJson(res, 400, { error: 'Identificador inválido.' });
+    const tcode = String(body.tcode || '').toUpperCase().trim();
+    const room = TABLET_RE.test(tcode) ? [...rooms.values()].find((r) => r.players.some((p) => p.tablet && p.tcode === tcode)) : null;
+    if (!room) return sendJson(res, 404, { error: 'Código do tablet incorreto ou desativado.' });
+    if (room.players.some((p) => p.id === body.pid && !p.tablet)) {
+      return sendJson(res, 400, { error: 'Este navegador já está na sala como jogador. Abra o tablet em outro aparelho.' });
+    }
+    const t = tabletOf(room);
+    if (t.id !== body.pid) {
+      t.id = body.pid;
+      broadcast(room);
+    }
+    return sendJson(res, 200, { code: room.code });
+  }
+
   if (req.method === 'POST' && parts[1] === 'rooms' && parts.length === 2) {
     const body = await readJson(req);
     if (!library[body.game]) return sendJson(res, 400, { error: 'Jogo desconhecido.' });
@@ -264,6 +299,26 @@ async function handleApi(req, res, url) {
       if (!player) return sendJson(res, 403, { error: 'Entre na sala primeiro.' });
       if (player.seat === null) return sendJson(res, 403, { error: 'Espectadores não podem jogar.' });
       const game = library[room.game];
+
+      if (action === 'tablet') {
+        if (player.seat === null) return sendJson(res, 403, { error: 'Só quem está jogando controla o tablet.' });
+        const op = body.op === 'off' || body.op === 'renew' ? body.op : 'get';
+        let t = tabletOf(room);
+        if (op === 'off') {
+          if (t) {
+            room.players = room.players.filter((p) => !p.tablet);
+            broadcast(room);
+          }
+          return sendJson(res, 200, { ok: true, tcode: null });
+        }
+        if (!t || op === 'renew') {
+          room.players = room.players.filter((p) => !p.tablet);
+          t = { id: null, name: 'Mesa', seat: null, tablet: true, tcode: newTabletCode() };
+          room.players.push(t);
+          broadcast(room);
+        }
+        return sendJson(res, 200, { ok: true, tcode: t.tcode });
+      }
 
       if (action === 'move') {
         const auto = (room.state.auto || []).filter((x) => x !== player.seat); // quem joga reassume o controle
