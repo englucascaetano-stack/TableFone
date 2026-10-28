@@ -27,7 +27,7 @@
     bart: ['Bart Cassidy', 'Compra 1 carta cada vez que perde 1 vida.'], blackjack: ['Black Jack', 'Ao comprar, mostra a 2ª carta; se for de copas ou ouros, compra mais 1.'],
     janet: ['Calamity Janet', 'Usa BANG! como Errou! e Errou! como BANG!.'], gringo: ['El Gringo', 'Quando um jogador lhe tira vida, pega 1 carta da mão dele.'],
     jesse: ['Jesse Jones', 'Pode comprar a 1ª carta da mão de outro jogador.'], jourdonnais: ['Jourdonnais', 'Tem um Barril permanente.'],
-    kit: ['Kit Carlson', 'Vê 3 cartas, fica com 2 e devolve 1 ao topo.'], lucky: ['Lucky Duke', 'Nos sorteios, revela 2 cartas e vale a melhor.'],
+    kit: ['Kit Carlson', 'Vê 3 cartas, fica com 2 e devolve 1 ao topo.'], lucky: ['Lucky Duke', 'Nos sorteios, revela 2 cartas e escolhe qual vale.'],
     paul: ['Paul Regret', 'Mustang permanente.'], pedro: ['Pedro Ramirez', 'Pode comprar a 1ª carta do descarte.'],
     rose: ['Rose Doolan', 'Mira permanente.'], sid: ['Sid Ketchum', 'Descarta 2 cartas para recuperar 1 vida.'],
     slab: ['Slab the Killer', 'Os BANG! dele exigem 2 Errou!.'], suzy: ['Suzy Lafayette', 'Quando ficar sem cartas na mão, compra 1.'],

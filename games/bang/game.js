@@ -49,7 +49,7 @@ const CHARS = [
   { id: 'jesse', name: 'Jesse Jones', hp: 4, text: 'Pode comprar a 1ª carta da mão de outro jogador.' },
   { id: 'jourdonnais', name: 'Jourdonnais', hp: 4, text: 'Tem um Barril permanente.' },
   { id: 'kit', name: 'Kit Carlson', hp: 4, text: 'Vê 3 cartas do baralho, fica com 2 e devolve 1 ao topo.' },
-  { id: 'lucky', name: 'Lucky Duke', hp: 4, text: 'Nos sorteios, revela 2 cartas e vale a melhor.' },
+  { id: 'lucky', name: 'Lucky Duke', hp: 4, text: 'Nos sorteios, revela 2 cartas e escolhe qual vale.' },
   { id: 'paul', name: 'Paul Regret', hp: 3, text: 'Mustang permanente: os outros o veem a +1 de distância.' },
   { id: 'pedro', name: 'Pedro Ramirez', hp: 4, text: 'Pode comprar a 1ª carta do topo do descarte.' },
   { id: 'rose', name: 'Rose Doolan', hp: 4, text: 'Mira permanente: vê os outros a -1 de distância.' },
