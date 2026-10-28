@@ -72,7 +72,7 @@
           'No turno: compre 2 cartas, jogue quantas puder (só 1 BANG! por turno) e descarte até ter tantas cartas quanto pontos de vida.',
           'Distância e alcance contam: o BANG! alcança 1 casa; armas, Mira e Mustang mudam isso. Cartas azuis ficam na mesa.',
           'Quem elimina um Fora-da-lei compra 3 cartas. O Xerife que elimina um Delegado perde todas as cartas.',
-          'Naipes e valores das cartas do baralho foram montados de memória: afetam só Barril, Dinamite, Cadeia e Lucky Duke.',
+          'Naipes e valores das cartas têm distribuição própria; afetam só Barril, Dinamite, Cadeia e Lucky Duke (que revela 2 cartas e escolhe qual vale).',
         ],
       });
     }
@@ -237,6 +237,11 @@
         mine.hand.forEach((c) => hand.append(cardEl(c)));
         ctrls.append(K.el('div', 'bg-hint', 'Kit Carlson: toque na carta que volta ao topo do baralho (você fica com as outras 2).'));
         mine.kit.forEach((c) => ctrls.append(cardEl(c, { onClick: () => send({ t: 'kitPut', card: c.id }) })));
+      } else if (mine.mode === 'lucky') {
+        mine.hand.forEach((c) => hand.append(cardEl(c)));
+        const why = { barrel: 'o Barril (copas salva)', jail: 'a Cadeia (copas liberta)', dyn: 'a Dinamite (espadas 2 a 9 explode)' }[mine.lucky.kind];
+        ctrls.append(K.el('div', 'bg-hint', `Lucky Duke: escolha qual carta vale para ${why}.`));
+        mine.lucky.cards.forEach((c) => ctrls.append(cardEl(c, { onClick: () => send({ t: 'luckyPick', card: c.id }) })));
       } else if (mine.mode === 'dying') {
         mine.hand.forEach((c) => hand.append(cardEl(c, { sel: !!sidMode && sidMode.includes(c.id), dim: !sidMode && !mine.dying.beers.includes(c.id), onClick: sidMode ? () => { sidMode = sidMode.includes(c.id) ? sidMode.filter((x) => x !== c.id) : sidMode.length < 2 ? [...sidMode, c.id] : sidMode; redraw(); } : undefined })));
         ctrls.append(K.el('div', 'bg-hint', `Você está morrendo! Precisa recuperar ${mine.dying.need} vida${mine.dying.need > 1 ? 's' : ''}.`));

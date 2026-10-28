@@ -9,7 +9,7 @@ const fail = (s, seat, req) => { const r = g.move(s, seat, req); assert.ok(r.err
 const D = g._DECK;
 const find = (type, from = 0) => D.findIndex((c, i) => i >= from && c.type === type);
 const count = (s) => s.deck.length + s.discard.length + s.hands.reduce((a, h) => a + h.length, 0) + s.table.reduce((a, h) => a + h.length, 0) +
-  (s.step && s.step.k === 'store' ? s.step.cards.length : 0) + (s.step && s.step.k === 'kit' ? s.step.cards.length : 0);
+  (s.step && s.step.k === 'store' ? s.step.cards.length : 0) + (s.step && (s.step.k === 'kit' || s.step.k === 'lucky') ? s.step.cards.length : 0);
 // partida controlada: sem personagens especiais, mao e mesa conhecidas
 function mk(players = 4, over = {}) {
   const s = g._deal(lobby(players));
@@ -337,6 +337,43 @@ t('personagens: Bart compra ao perder vida, Slab exige 2 Errou!, Janet inverte B
   assert.strictEqual(kt.hands[0].length, 2);
   assert.strictEqual(kt.deck[kt.deck.length - 1], keep[2]);
   assert.strictEqual(kt.stage, 'play');
+});
+
+t('Lucky Duke: revela 2 cartas e o jogador escolhe qual vale (Barril, Dinamite, Cadeia)', () => {
+  let s = mk(4);
+  s.chars[1] = 'lucky';
+  put(s, 1, find('barrel'));
+  give(s, 0, find('bang'));
+  const heart = D.findIndex((c) => c.suit === 'H' && c.type === 'beer');
+  const spade = D.findIndex((c) => c.suit === 'S' && c.type === 'missed');
+  s.deck.splice(s.deck.indexOf(heart), 1); s.deck.push(heart);
+  s.deck.splice(s.deck.indexOf(spade), 1); s.deck.push(spade);
+  s = play(s, 0, { t: 'play', card: find('bang'), target: 1 });
+  assert.strictEqual(s.step.k, 'lucky');
+  assert.strictEqual(g.viewFor(s, 1).mode, 'lucky');
+  fail(s, 0, { t: 'luckyPick', card: heart });
+  fail(s, 1, { t: 'luckyPick', card: 0 });
+  const ok = play(s, 1, { t: 'luckyPick', card: heart });          // coracao: Barril salva
+  assert.strictEqual(ok.step, null);
+  assert.strictEqual(ok.hp[1], 4);
+  const bad = play(s, 1, { t: 'luckyPick', card: spade });         // escolheu a ruim: segue o BANG!
+  assert.strictEqual(bad.step.k, 'bang');
+  assert.strictEqual(count(ok), 80);
+  // Dinamite: escolhe a carta segura
+  let d = mk(4);
+  d.chars[0] = 'lucky'; put(d, 0, find('dynamite'));
+  const boom = D.findIndex((c) => c.suit === 'S' && c.rank >= 2 && c.rank <= 9);
+  const safe = D.findIndex((c) => c.suit === 'D');
+  d.deck.splice(d.deck.indexOf(boom), 1); d.deck.push(boom);
+  d.deck.splice(d.deck.indexOf(safe), 1); d.deck.push(safe);
+  d.turn = 3;
+  d = play(d, 3, { t: 'end' });
+  assert.strictEqual(d.step.k, 'lucky');
+  d = play(d, 0, { t: 'luckyPick', card: safe });
+  assert.strictEqual(d.hp[0], 4);
+  assert.deepStrictEqual(d.table.map((x) => x.length), [0, 1, 0, 0]);
+  assert.strictEqual(d.stage, 'draw');
+  assert.strictEqual(d.turn, 0);
 });
 
 t('descarte ao fim do turno: so o que passa da vida; autopiloto joga um turno valido', () => {

@@ -11,8 +11,8 @@
 // Vitoria: Xerife e Delegados eliminam os Fora-da-lei e o Renegado; os Fora-da-lei vencem se o Xerife morrer;
 // o Renegado vence se, quando o Xerife morrer, for o unico jogador vivo.
 //
-// Pontos a confirmar com o baralho fisico: naipes e valores de cada carta (afetam so Barril, Dinamite, Cadeia e
-// Lucky Duke; a lista foi montada de memoria) e a escolha automatica do Lucky Duke, que sempre pega a melhor carta.
+// Naipes e valores das cartas: distribuicao propria (afetam so Barril, Dinamite, Cadeia e Lucky Duke).
+// Lucky Duke revela 2 cartas nos sorteios e o jogador escolhe qual vale.
 
 const MIN_PLAYERS = 4;
 const MAX_PLAYERS = 7;
@@ -157,22 +157,68 @@ function discardFromHand(s, seat, id) {
   return true;
 }
 
-// "Comprar!": revela carta(s) do baralho; Lucky Duke revela 2 e vale a melhor. Retorna true se alguma serve.
-function check(s, seat, good, why) {
+// "Comprar!": revela carta(s) do baralho. Lucky Duke revela 2 e ESCOLHE qual vale (passo 'lucky').
+const isHeart = (c) => c.suit === 'H';
+const safeFromDynamite = (c) => !(c.suit === 'S' && c.rank >= 2 && c.rank <= 9);
+const GOOD = { barrel: isHeart, jail: isHeart, dyn: safeFromDynamite };
+const FLIP_WHY = { barrel: 'o Barril', jail: 'a Cadeia', dyn: 'a Dinamite' };
+
+function flip(s, seat, kind, ctx) {
   const n = s.chars[seat] === 'lucky' ? 2 : 1;
   const cards = [];
   for (let i = 0; i < n; i++) {
     const c = drawCard(s);
     if (c !== null) cards.push(c);
   }
-  const ok = cards.some((c) => good(DECK[c]));
-  s.discard.push(...cards);
-  log(s, `@${seat} comprou para ${why}: ${cards.map(cardName).join(' e ')} (${ok ? 'deu certo' : 'não deu'}).`);
-  return ok;
+  if (cards.length === 2) {
+    s.step = { k: 'lucky', seat, cards, kind, ctx };
+    return null;
+  }
+  return finishFlip(s, seat, kind, cards, ctx);
 }
-const isHeart = (c) => c.suit === 'H';
-const safeFromDynamite = (c) => !(c.suit === 'S' && c.rank >= 2 && c.rank <= 9);
 
+function finishFlip(s, seat, kind, cards, ctx, chosen) {
+  const good = GOOD[kind];
+  const ok = chosen !== undefined ? good(DECK[chosen]) : cards.some((c) => good(DECK[c]));
+  s.discard.push(...cards);
+  log(s, `@${seat} comprou para ${FLIP_WHY[kind]}: ${cards.map(cardName).join(' e ')} (${ok ? 'deu certo' : 'não deu'}).`);
+  s.step = null;
+  return afterFlip(s, seat, kind, ok, ctx);
+}
+
+function afterFlip(s, seat, kind, ok, ctx) {
+  if (kind === 'barrel') {
+    let need = ctx.need;
+    if (ok) need -= 1;
+    const left = ctx.left - 1;
+    if (need <= 0) {
+      log(s, `@${ctx.target} se salvou com o Barril.`);
+      return nextInQueue(s, { kind: ctx.kind, src: ctx.src, rest: ctx.rest });
+    }
+    return attackBarrels(s, ctx.src, ctx.target, need, ctx.kind, ctx.rest, left);
+  }
+  if (kind === 'dyn') {
+    const dyn = ctx.dyn;
+    s.table[seat].splice(s.table[seat].indexOf(dyn), 1);
+    if (ok) {
+      const next = nextAliveFrom(s, seat);
+      s.table[next].push(dyn);
+      log(s, `A Dinamite passou para @${next}.`);
+      return doJail(s);
+    }
+    s.discard.push(dyn);
+    log(s, `A Dinamite explodiu em @${seat}!`);
+    return lose(s, seat, 3, null, { k: 'jail' });
+  }
+  // jail
+  if (!ok) {
+    log(s, `@${seat} continua preso e perde a vez.`);
+    return nextTurn(s);
+  }
+  log(s, `@${seat} saiu da Cadeia.`);
+  s.stage = 'draw';
+  return null;
+}
 function suzyFix(s) {
   for (let i = 0; i < s.players; i++) {
     if (s.alive[i] && s.chars[i] === 'suzy' && s.hands[i].length === 0) giveCards(s, i, 1);
@@ -291,15 +337,18 @@ function nextInQueue(s, q) {
 
 function attack(s, src, target, need, kind, rest) {
   if (!s.alive[target]) return nextInQueue(s, { kind, src, rest });
-  if (kind !== 'indians') {
-    const barrels = (tableHas(s, target, 'barrel') !== undefined ? 1 : 0) + (s.chars[target] === 'jourdonnais' ? 1 : 0);
-    for (let i = 0; i < barrels && need > 0; i++) if (check(s, target, isHeart, 'o Barril')) need -= 1;
-    if (need <= 0) {
-      log(s, `@${target} se salvou com o Barril.`);
-      return nextInQueue(s, { kind, src, rest });
-    }
+  if (kind === 'indians') {
+    s.step = { k: 'indians', src, target, need, kind, rest };
+    return null;
   }
-  s.step = { k: kind === 'indians' ? 'indians' : 'bang', src, target, need, kind, rest };
+  const barrels = (tableHas(s, target, 'barrel') !== undefined ? 1 : 0) + (s.chars[target] === 'jourdonnais' ? 1 : 0);
+  return attackBarrels(s, src, target, need, kind, rest, barrels);
+}
+
+// Tenta os Barris que restam (`left`) antes de abrir a janela de resposta do alvo.
+function attackBarrels(s, src, target, need, kind, rest, left) {
+  if (left > 0 && need > 0) return flip(s, target, 'barrel', { src, target, need, kind, rest, left });
+  s.step = { k: 'bang', src, target, need, kind, rest };
   return null;
 }
 
@@ -321,17 +370,7 @@ function doDynamite(s) {
   const t = s.turn;
   const dyn = tableHas(s, t, 'dynamite');
   if (dyn === undefined) return doJail(s);
-  if (check(s, t, safeFromDynamite, 'a Dinamite')) {
-    s.table[t].splice(s.table[t].indexOf(dyn), 1);
-    const next = nextAliveFrom(s, t);
-    s.table[next].push(dyn);
-    log(s, `A Dinamite passou para @${next}.`);
-    return doJail(s);
-  }
-  s.table[t].splice(s.table[t].indexOf(dyn), 1);
-  s.discard.push(dyn);
-  log(s, `A Dinamite explodiu em @${t}!`);
-  return lose(s, t, 3, null, { k: 'jail' });
+  return flip(s, t, 'dyn', { dyn });
 }
 
 function doJail(s) {
@@ -342,11 +381,7 @@ function doJail(s) {
   if (jail !== undefined) {
     s.table[t].splice(s.table[t].indexOf(jail), 1);
     s.discard.push(jail);
-    if (!check(s, t, isHeart, 'a Cadeia')) {
-      log(s, `@${t} continua preso e perde a vez.`);
-      return nextTurn(s);
-    }
-    log(s, `@${t} saiu da Cadeia.`);
+    return flip(s, t, 'jail', {});
   }
   s.stage = 'draw';
   return null;
@@ -624,6 +659,12 @@ function move(state, seat, req) {
       log(s, `@${seat} ficou com 2 cartas e devolveu 1 ao baralho.`);
       return finish(s);
     }
+    if (step.k === 'lucky') {
+      if (seat !== step.seat) return { error: 'Aguardando Lucky Duke escolher.' };
+      if (req.t !== 'luckyPick' || !step.cards.includes(req.card)) return { error: 'Escolha uma das duas cartas reveladas.' };
+      finishFlip(s, seat, step.kind, step.cards, step.ctx, req.card);
+      return finish(s);
+    }
     if (step.k === 'dying') {
       if (seat !== step.seat) return { error: 'Aguardando o jogador ferido.' };
       if (req.t === 'giveup') {
@@ -738,6 +779,7 @@ function publicStep(s) {
   if (st.k === 'duel') return { k: 'duel', a: st.a, b: st.b, waiting: [st.turn] };
   if (st.k === 'store') return { k: 'store', cards: st.cards.map(info), waiting: [st.queue[0]] };
   if (st.k === 'kit') return { k: 'kit', seat: st.seat, waiting: [st.seat] };
+  if (st.k === 'lucky') return { k: 'lucky', seat: st.seat, kind: st.kind, cards: st.cards.map(info), waiting: [st.seat] };
   return { k: 'dying', seat: st.seat, src: st.src, waiting: [st.seat] };
 }
 
@@ -791,6 +833,9 @@ function viewFor(state, seat) {
     else if (st.k === 'kit' && st.seat === seat) {
       out.mode = 'kit';
       out.kit = st.cards.map(info);
+    } else if (st.k === 'lucky' && st.seat === seat) {
+      out.mode = 'lucky';
+      out.lucky = { kind: st.kind, cards: st.cards.map(info) };
     } else if (st.k === 'dying' && st.seat === seat) {
       out.mode = 'dying';
       out.dying = { need: 1 - s.hp[seat], beers: s.hands[seat].filter((id) => typeOf(id) === 'beer' && aliveSeats(s).length > 2), sid: s.chars[seat] === 'sid' };
@@ -838,6 +883,11 @@ function autoMove(state, seat) {
     }
     if (st.k === 'store') return { t: 'pick', card: st.cards[0] };
     if (st.k === 'kit') return { t: 'kitPut', card: st.cards[st.cards.length - 1] };
+    if (st.k === 'lucky') {
+      const good = GOOD[st.kind];
+      const c = st.cards.find((id) => good(DECK[id]));
+      return { t: 'luckyPick', card: c !== undefined ? c : st.cards[0] };
+    }
     if (st.k === 'dying') {
       const beer = aliveSeats(state).length > 2 ? hand.find((id) => typeOf(id) === 'beer') : undefined;
       if (beer !== undefined) return { t: 'beer', card: beer };
@@ -873,5 +923,4 @@ export default {
   _deal: deal,
   _dist: dist,
   _rng: rng,
-  _check: check,
 };
