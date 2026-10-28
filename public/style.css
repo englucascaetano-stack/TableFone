@@ -479,3 +479,7 @@ table.sum th:first-child, table.sum td:first-child { text-align: left; color: va
 .wr-card.s0 { color: #e8b0a8; } .wr-card.s1 { color: #a8c8e8; } .wr-card.s2 { color: #b0e0b0; } .wr-card.s3 { color: #e8d070; }
 .wr-obj { max-width: 460px; margin: 10px auto; color: var(--text); font-size: 0.9rem; }
 .wr-obj summary { cursor: pointer; text-align: center; color: var(--accent); font-weight: 700; }
+.wr-ce { fill: #fff; stroke: #1c1a17; stroke-width: 1; pointer-events: none; }
+.wr-num { min-width: 120px; text-align: center; font-weight: 700; align-self: center; }
+.wr-card.ce { border-color: #d9a441; }
+.wr-card.num { color: #e8d070; }
