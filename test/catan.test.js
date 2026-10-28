@@ -123,6 +123,7 @@ t('construcao: estrada, colonia e cidade com custo, ligacao e limites', () => {
   let s = started(3);
   s.step = 'main';
   const me = s.turn;
+  s.hands[me] = { brick: 0, lumber: 0, wool: 0, grain: 0, ore: 0 };
   fail(s, me, { t: 'road', e: 0 }); // sem recursos
   give(s, me, { brick: 5, lumber: 5, wool: 5, grain: 5, ore: 5 });
   const roads = g._roadSpots(s, me);
@@ -284,6 +285,7 @@ t('comercio entre jogadores: oferta, aceite, confirmacao', () => {
   const me = s.turn;
   const p = (me + 1) % 3;
   give(s, me, { brick: 2 });
+  s.hands[me].ore = 0;
   s.hands[p].ore = 1;
   fail(s, me, { t: 'trade_offer', give: { brick: 1 }, get: { brick: 1 } });
   fail(s, me, { t: 'trade_offer', give: { ore: 1 }, get: { wool: 1 } });

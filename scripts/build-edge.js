@@ -12,8 +12,20 @@ const ids = [];
 for (const entry of fs.readdirSync(path.join(root, 'games'), { withFileTypes: true })) {
   const file = path.join(root, 'games', entry.name, 'game.js');
   if (!entry.isDirectory() || !fs.existsSync(file)) continue;
-  const src = fs.readFileSync(file, 'utf8');
+  let src = fs.readFileSync(file, 'utf8');
   if (!src.includes('module.exports = {')) throw new Error(`${file}: esperado "module.exports = {"`);
+  // modulos auxiliares do jogo (ex.: games/scrabble/dict.js) viram <id>-<nome>.mjs e os require('./x.js') viram import
+  for (const extra of fs.readdirSync(path.join(root, 'games', entry.name))) {
+    if (extra === 'game.js' || !extra.endsWith('.js')) continue;
+    const base = extra.slice(0, -3);
+    const code = fs.readFileSync(path.join(root, 'games', entry.name, extra), 'utf8');
+    if (!code.includes('module.exports = {')) throw new Error(`${extra}: esperado "module.exports = {"`);
+    fs.writeFileSync(
+      path.join(outDir, `${entry.name}-${base}.mjs`),
+      `// GERADO por scripts/build-edge.js a partir de games/${entry.name}/${extra}. Nao edite.\n` + code.replace('module.exports = {', 'export default {')
+    );
+    src = src.replace(new RegExp(`const (\\w+) = require\\('\\./${base}\\.js'\\);`), `import $1 from './${entry.name}-${base}.mjs';`);
+  }
   fs.writeFileSync(
     path.join(outDir, `${entry.name}.mjs`),
     `// GERADO por scripts/build-edge.js a partir de games/${entry.name}/game.js. Nao edite.\n` +
