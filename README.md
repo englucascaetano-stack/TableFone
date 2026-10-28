@@ -10,14 +10,14 @@ Jogos na biblioteca:
 |---|---|---|
 | Dama | 2 | Brasileira 8x8, captura obrigatória e dama voadora |
 | Paciência | 1 (outros assistem) | Klondike, compra de 1 ou 3, desfazer |
-| Uno | 2 a 8 | Sem acumular +2/+4 |
+| Uno | 2 a 8 | Sem acumular +2/+4; +4 com desafio; Coringa Trocar as Mãos; jogo até 500 pontos; UNO automático ou manual |
 | Truco | 2 ou 4 (duplas) | Paulista: manilha pela vira, truco/seis/nove/doze, mão de onze |
 | Buraco | 2 ou 4 (duplas) | Só sequências, 2 baralhos + 4 coringas, canastras e 2 mortos |
 | Caxeta | 2 a 6 | 9 cartas, bate quem fechar jogos de 3+ cartas |
 | Coup | 2 a 6 | Blefe, desafios e bloqueios; 15 cartas de personagem |
 | War | 3 a 6 | Conquista do mundo: dados, cartas, objetivos secretos; mapa de 42 territórios |
 | War II | 3 a 6 | War com Centros Estratégicos, bombardeiros e cartas (regras do manual do War II; mapa lido do tabuleiro) |
-| BANG! | 4 a 7 | Faroeste com papéis secretos (Xerife, Delegados, Fora-da-lei, Renegado), 16 personagens e baralho de 80 cartas |
+| BANG! | 4 a 7 | Faroeste com papéis secretos (Xerife, Delegados, Fora-da-lei, Renegado), 16 personagens e baralho de 80 cartas; Barril sob pedido; Sid cura a qualquer momento |
 | Azul | 2 a 4 | Montar a parede de mosaicos escolhendo azulejos das fábricas; pontuação por sequências |
 | Código Secreto | 4 a 8 | Duas equipes, espiões dão pistas de uma palavra; 332 palavras em português |
 

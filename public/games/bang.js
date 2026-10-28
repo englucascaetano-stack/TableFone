@@ -1,7 +1,7 @@
 'use strict';
 // Interface do BANG! (cartas). Toque numa carta da sua mao para escolhe-la; se ela precisa de alvo, toque no jogador.
 // Intencoes: start | draw{src} | play{card,target?,pick?} | sid{cards} | discard{card} | end
-//            respostas: missed{card} | bang{card} | pass | pick{card} | kitPut{card} | beer{card} | giveup
+//            respostas: missed{card} | bang{card} | barrel | pass | pick{card} | kitPut{card} | beer{card} | giveup
 
 (function () {
   const K = window.GameKit;
@@ -193,23 +193,17 @@
         mine.hand.forEach((c) => hand.append(cardEl(c)));
       } else if (mine.mode === 'play') {
         mine.hand.forEach((c) => {
-          const chosen = sidMode ? sidMode.includes(c.id) : sel && sel.id === c.id;
           hand.append(cardEl(c, {
-            sel: chosen,
-            dim: !sidMode && !c.ok && !mine.over,
+            sel: sel && sel.id === c.id,
+            dim: !c.ok && !mine.over,
             onClick: () => {
-              if (sidMode) {
-                sidMode = sidMode.includes(c.id) ? sidMode.filter((x) => x !== c.id) : sidMode.length < 2 ? [...sidMode, c.id] : sidMode;
-              } else sel = sel && sel.id === c.id ? null : { id: c.id, type: c.type, ok: c.ok, targets: c.targets, pick: c.pick };
+              sel = sel && sel.id === c.id ? null : { id: c.id, type: c.type, ok: c.ok, targets: c.targets, pick: c.pick };
               pickFor = null;
               redraw();
             },
           }));
         });
-        if (sidMode) {
-          btn('Descartar 2 cartas e curar 1 vida', () => { const cards = sidMode; sidMode = null; send({ t: 'sid', cards }); }, false, sidMode.length === 2);
-          btn('Cancelar', () => { sidMode = null; redraw(); }, true);
-        } else {
+        {
           if (sel) {
             if (sel.targets) {
               ctrls.append(K.el('div', 'bg-hint', sel.ok ? 'Toque no jogador alvo.' : 'Nenhum alvo ao alcance.'));
@@ -218,13 +212,17 @@
             }
             if (mine.over) btn('Descartar essa carta', () => { const id = sel.id; sel = null; send({ t: 'discard', card: id }); }, true);
           }
-          if (mine.sid) btn('Sid Ketchum: curar 1 vida', () => { sidMode = []; sel = null; redraw(); }, true);
           btn('Encerrar turno', () => send({ t: 'end' }), true, !mine.over);
           if (mine.over) ctrls.append(K.el('div', 'bg-hint', `Descarte ${mine.over} carta${mine.over > 1 ? 's' : ''} para encerrar.`));
         }
       } else if (mine.mode === 'respond') {
         mine.hand.forEach((c) => hand.append(cardEl(c, { dim: !mine.respond.cards.includes(c.id) })));
         const r = mine.respond;
+        if (r.k === 'barrel') {
+          ctrls.append(K.el('div', 'bg-hint', `Atiraram em você e você tem um Barril${r.left > 1 ? ` (mais de um: ${r.left} tentativas)` : ''}. Usar o Barril? Copas cancela o tiro.`));
+          btn('Usar o Barril (comprar!)', () => send({ t: 'barrel' }));
+          btn('Não usar', () => send({ t: 'pass' }), true);
+        } else {
         const verb = r.k === 'bang' ? 'Atiraram em você' : r.k === 'indians' ? 'Índios!' : `Duelo com ${nameOf(r.other)}`;
         ctrls.append(K.el('div', 'bg-hint', `${verb}.${r.k === 'bang' && r.need > 1 ? ` Precisa de ${r.need} Errou!.` : ''}`));
         r.cards.forEach((id) => {
@@ -232,6 +230,7 @@
           btn(`Usar ${NAME[c.type]} (${rk(c.rank)}${SUIT[c.suit]})`, () => send({ t: r.k === 'bang' ? 'missed' : 'bang', card: id }));
         });
         btn(r.k === 'duel' ? 'Perder o duelo (-1 vida)' : 'Perder 1 vida', () => send({ t: 'pass' }), true);
+        }
       } else if (mine.mode === 'store') {
         mine.hand.forEach((c) => hand.append(cardEl(c)));
         ctrls.append(K.el('div', 'bg-hint', 'Armazém: escolha uma carta.'));
@@ -257,6 +256,17 @@
         btn('Desistir', () => send({ t: 'giveup' }), true);
       } else {
         mine.hand.forEach((c) => hand.append(cardEl(c)));
+      }
+      // Sid Ketchum cura a qualquer momento (menos morrendo, que tem fluxo proprio acima).
+      if (mine.sid && mine.mode !== 'dying') {
+        if (sidMode) {
+          ctrls.append(K.el('div', 'bg-hint', 'Sid Ketchum: toque em 2 cartas da mão para descartar.'));
+          const pick = K.el('div', 'bg-row');
+          mine.hand.forEach((c) => pick.append(cardEl(c, { sel: sidMode.includes(c.id), onClick: () => { sidMode = sidMode.includes(c.id) ? sidMode.filter((x) => x !== c.id) : sidMode.length < 2 ? [...sidMode, c.id] : sidMode; redraw(); } })));
+          ctrls.append(pick);
+          btn('Descartar 2 cartas e curar 1 vida', () => { const cards = sidMode; sidMode = null; send({ t: 'sid', cards }); }, false, sidMode.length === 2);
+          btn('Cancelar', () => { sidMode = null; redraw(); }, true);
+        } else btn('Sid Ketchum: curar 1 vida', () => { sidMode = []; sel = null; redraw(); }, true);
       }
       if (ctrls.childNodes.length) me.append(ctrls);
       me.append(hand);

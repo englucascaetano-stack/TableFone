@@ -6,6 +6,7 @@
 // tantas cartas quanto pontos de vida. Antes de comprar, resolve a Dinamite e a Cadeia que estiverem na mesa.
 // Distancia: menor caminho entre vivos; Mustang (+1 para quem o olha) e Mira (-1 para quem a tem); minimo 1.
 // Alcance do BANG!: 1 (Colt) ou o da arma na mesa. Cerveja nao cura quando restam so 2 jogadores.
+// Barril: quando ha um tiro, o alvo ESCOLHE se usa o Barril ("comprar!"). Sid Ketchum cura a qualquer momento.
 // Morte: quem matar um Fora-da-lei compra 3 cartas; o Xerife que matar um Delegado descarta todas as suas cartas.
 // Vitoria: Xerife e Delegados eliminam os Fora-da-lei e o Renegado; os Fora-da-lei vencem se o Xerife morrer;
 // o Renegado vence se, quando o Xerife morrer, for o unico jogador vivo.
@@ -345,8 +346,12 @@ function attack(s, src, target, need, kind, rest) {
 }
 
 // Tenta os Barris que restam (`left`) antes de abrir a janela de resposta do alvo.
+// O Barril e opcional: o alvo escolhe se quer "comprar!" (passo 'barrel'); recusando, segue para a janela de resposta.
 function attackBarrels(s, src, target, need, kind, rest, left) {
-  if (left > 0 && need > 0) return flip(s, target, 'barrel', { src, target, need, kind, rest, left });
+  if (left > 0 && need > 0) {
+    s.step = { k: 'barrel', src, target, need, kind, rest, left };
+    return null;
+  }
   s.step = { k: 'bang', src, target, need, kind, rest };
   return null;
 }
@@ -585,6 +590,18 @@ function move(state, seat, req) {
   const s = JSON.parse(JSON.stringify(state));
   const step = s.step;
 
+  /* Sid Ketchum: descarta 2 cartas e recupera 1 vida a QUALQUER momento (regra oficial); morrendo, segue o fluxo abaixo */
+  if (req.t === 'sid' && !(step && step.k === 'dying' && step.seat === seat)) {
+    if (s.chars[seat] !== 'sid') return { error: 'Só o Sid Ketchum faz isso.' };
+    const c = req.cards;
+    if (s.hp[seat] >= s.max[seat]) return { error: 'Sua vida já está no máximo.' };
+    if (!Array.isArray(c) || c.length !== 2 || c[0] === c[1] || !c.every((x) => s.hands[seat].includes(x))) return { error: 'Escolha 2 cartas da mão.' };
+    c.forEach((x) => discardFromHand(s, seat, x));
+    s.hp[seat] += 1;
+    log(s, `@${seat} descartou 2 cartas para recuperar 1 vida (Sid Ketchum).`);
+    return finish(s);
+  }
+
   /* respostas */
   if (step) {
     if (step.k === 'bang') {
@@ -602,6 +619,20 @@ function move(state, seat, req) {
         return finish(s);
       }
       return { error: 'Responda com Errou! ou aceite o tiro.' };
+    }
+    if (step.k === 'barrel') {
+      if (seat !== step.target) return { error: 'Aguardando a resposta de outro jogador.' };
+      if (req.t === 'barrel') {
+        s.step = null;
+        flip(s, seat, 'barrel', { src: step.src, target: step.target, need: step.need, kind: step.kind, rest: step.rest, left: step.left });
+        return finish(s);
+      }
+      if (req.t === 'pass') {
+        log(s, `@${seat} não usou o Barril.`);
+        attackBarrels(s, step.src, step.target, step.need, step.kind, step.rest, 0);
+        return finish(s);
+      }
+      return { error: 'Use o Barril ou siga para responder ao tiro.' };
     }
     if (step.k === 'indians') {
       if (seat !== step.target) return { error: 'Aguardando a resposta de outro jogador.' };
@@ -744,17 +775,6 @@ function move(state, seat, req) {
 
   if (req.t === 'play') return playCard(s, seat, req);
 
-  if (req.t === 'sid') {
-    if (s.chars[seat] !== 'sid') return { error: 'Só o Sid Ketchum faz isso.' };
-    const c = req.cards;
-    if (s.hp[seat] >= s.max[seat]) return { error: 'Sua vida já está no máximo.' };
-    if (!Array.isArray(c) || c.length !== 2 || c[0] === c[1] || !c.every((x) => s.hands[seat].includes(x))) return { error: 'Escolha 2 cartas da mão.' };
-    c.forEach((x) => discardFromHand(s, seat, x));
-    s.hp[seat] += 1;
-    log(s, `@${seat} descartou 2 cartas para recuperar 1 vida (Sid Ketchum).`);
-    return finish(s);
-  }
-
   if (req.t === 'discard') {
     if (s.hands[seat].length <= s.hp[seat]) return { error: 'Você só descarta o que passar do limite de cartas.' };
     if (!discardFromHand(s, seat, req.card)) return { error: 'Você não tem essa carta.' };
@@ -774,7 +794,7 @@ function move(state, seat, req) {
 function publicStep(s) {
   const st = s.step;
   if (!st) return null;
-  if (st.k === 'bang' || st.k === 'indians') return { k: st.k, src: st.src, target: st.target, need: st.need, kind: st.kind, waiting: [st.target] };
+  if (st.k === 'bang' || st.k === 'indians' || st.k === 'barrel') return { k: st.k, src: st.src, target: st.target, need: st.need, kind: st.kind, waiting: [st.target] };
   if (st.k === 'duel') return { k: 'duel', a: st.a, b: st.b, waiting: [st.turn] };
   if (st.k === 'store') return { k: 'store', cards: st.cards.map(info), waiting: [st.queue[0]] };
   if (st.k === 'kit') return { k: 'kit', seat: st.seat, waiting: [st.seat] };
@@ -817,9 +837,13 @@ function viewFor(state, seat) {
   const out = { role: s.roles[seat], char: s.chars[seat], alive: s.alive[seat], hand: s.hands[seat].map(info), dist: [], mode: 'wait' };
   if (s.phase !== 'playing' || !s.alive[seat]) return out;
   out.dist = s.alive.map((a, i) => (a && i !== seat ? dist(s, seat, i) : 0));
+  out.sid = s.chars[seat] === 'sid' && s.hp[seat] < s.max[seat] && s.hands[seat].length >= 2;
   const st = s.step;
   if (st) {
-    if (st.k === 'bang' && st.target === seat) {
+    if (st.k === 'barrel' && st.target === seat) {
+      out.mode = 'respond';
+      out.respond = { k: 'barrel', need: st.need, src: st.src, left: st.left, cards: [] };
+    } else if (st.k === 'bang' && st.target === seat) {
       out.mode = 'respond';
       out.respond = { k: 'bang', need: st.need, src: st.src, cards: s.hands[seat].filter((id) => isMissedCard(s, seat, id)) };
     } else if (st.k === 'indians' && st.target === seat) {
@@ -850,7 +874,6 @@ function viewFor(state, seat) {
   out.mode = 'play';
   out.hand = s.hands[seat].map((id) => ({ ...info(id), ...options(s, seat, id) }));
   out.over = s.hands[seat].length > s.hp[seat] ? s.hands[seat].length - s.hp[seat] : 0;
-  out.sid = s.chars[seat] === 'sid' && s.hp[seat] < s.max[seat] && s.hands[seat].length >= 2;
   return out;
 }
 
@@ -860,7 +883,7 @@ function waitingOn(state) {
   if (state.phase !== 'playing') return [];
   const st = state.step;
   if (st) {
-    if (st.k === 'bang' || st.k === 'indians') return [st.target];
+    if (st.k === 'bang' || st.k === 'indians' || st.k === 'barrel') return [st.target];
     if (st.k === 'duel') return [st.turn];
     if (st.k === 'store') return [st.queue[0]];
     return [st.seat];
@@ -872,6 +895,7 @@ function autoMove(state, seat) {
   const st = state.step;
   const hand = state.hands[seat];
   if (st) {
+    if (st.k === 'barrel') return { t: 'barrel' };
     if (st.k === 'bang') {
       const c = hand.find((id) => isMissedCard(state, seat, id));
       return c !== undefined ? { t: 'missed', card: c } : { t: 'pass' };

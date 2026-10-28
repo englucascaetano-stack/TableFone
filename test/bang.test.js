@@ -106,6 +106,11 @@ t('Barril: coracao cancela o BANG!', () => {
   const heart = D.findIndex((c) => c.suit === 'H');
   s.deck.splice(s.deck.indexOf(heart), 1); s.deck.push(heart);   // topo do baralho
   s = play(s, 0, { t: 'play', card: bg, target: 1 });
+  assert.strictEqual(s.step.k, 'barrel');                      // o Barril e solicitado ao alvo
+  assert.strictEqual(g.viewFor(s, 1).mode, 'respond');
+  assert.strictEqual(g.viewFor(s, 1).respond.k, 'barrel');
+  fail(s, 0, { t: 'barrel' });                                  // so o alvo responde
+  s = play(s, 1, { t: 'barrel' });
   assert.strictEqual(s.step, null);
   assert.strictEqual(s.hp[1], 4);
   let s2 = mk(4);
@@ -113,7 +118,56 @@ t('Barril: coracao cancela o BANG!', () => {
   put(s2, 1, barrel); give(s2, 0, bg === spade ? find('bang', bg + 1) : bg);
   s2.deck.splice(s2.deck.indexOf(spade), 1); s2.deck.push(spade);
   s2 = play(s2, 0, { t: 'play', card: s2.hands[0][0], target: 1 });
+  s2 = play(s2, 1, { t: 'barrel' });
   assert.ok(s2.step && s2.step.k === 'bang');
+  // recusar o Barril: vai direto para a janela de resposta, sem comprar carta do baralho
+  let s3 = mk(4);
+  put(s3, 1, barrel); give(s3, 0, bg);
+  const deckBefore = s3.deck.length;
+  s3 = play(s3, 0, { t: 'play', card: bg, target: 1 });
+  s3 = play(s3, 1, { t: 'pass' });
+  assert.strictEqual(s3.step.k, 'bang');
+  assert.strictEqual(s3.deck.length, deckBefore);
+  assert.strictEqual(count(s3), 80);
+});
+
+t('Jourdonnais: Barril permanente tambem e solicitado; com Barril na mesa pergunta de novo', () => {
+  let s = mk(4);
+  s.chars[1] = 'jourdonnais'; put(s, 1, find('barrel')); give(s, 0, find('bang'));
+  const spade = D.findIndex((c) => c.suit === 'S' && c.type === 'missed');
+  s.deck.splice(s.deck.indexOf(spade), 1); s.deck.push(spade);
+  s = play(s, 0, { t: 'play', card: find('bang'), target: 1 });
+  assert.strictEqual(s.step.k, 'barrel');
+  assert.strictEqual(s.step.left, 2);
+  s = play(s, 1, { t: 'barrel' });                              // falhou (espadas): pergunta pelo segundo Barril
+  assert.strictEqual(s.step.k, 'barrel');
+  assert.strictEqual(s.step.left, 1);
+  s = play(s, 1, { t: 'pass' });
+  assert.strictEqual(s.step.k, 'bang');
+});
+
+t('Sid Ketchum cura a qualquer momento, inclusive fora do turno e durante uma resposta', () => {
+  let s = mk(4);
+  s.chars[2] = 'sid'; s.hp[2] = 2;
+  give(s, 2, find('bang'), find('bang', 5), find('beer'));
+  const h = s.hands[2].slice(0, 2);
+  assert.strictEqual(s.turn, 0);
+  assert.strictEqual(g.viewFor(s, 2).sid, true);                // aparece mesmo fora do turno
+  fail(s, 3, { t: 'sid', cards: [0, 1] });                      // so o Sid
+  fail(s, 2, { t: 'sid', cards: [h[0], h[0]] });
+  s = play(s, 2, { t: 'sid', cards: h });
+  assert.strictEqual(s.hp[2], 3);
+  assert.strictEqual(s.turn, 0);                                // nao muda o turno
+  // durante a resposta de outro jogador a um BANG!
+  give(s, 0, find('bang', 9));
+  s = play(s, 0, { t: 'play', card: find('bang', 9), target: 1 });
+  assert.strictEqual(s.step.target, 1);
+  give(s, 2, find('bang', 6), find('bang', 7));
+  s = play(s, 2, { t: 'sid', cards: [find('bang', 6), find('bang', 7)] });
+  assert.strictEqual(s.hp[2], 4);
+  assert.strictEqual(s.step.target, 1);                         // a resposta continua pendente
+  fail(s, 2, { t: 'sid', cards: s.hands[2].slice(0, 2) });      // vida cheia
+  assert.strictEqual(count(s), 80);
 });
 
 t('Cerveja: cura, nao passa do maximo e nao funciona com 2 jogadores', () => {
@@ -349,6 +403,7 @@ t('Lucky Duke: revela 2 cartas e o jogador escolhe qual vale (Barril, Dinamite, 
   s.deck.splice(s.deck.indexOf(heart), 1); s.deck.push(heart);
   s.deck.splice(s.deck.indexOf(spade), 1); s.deck.push(spade);
   s = play(s, 0, { t: 'play', card: find('bang'), target: 1 });
+  s = play(s, 1, { t: 'barrel' });
   assert.strictEqual(s.step.k, 'lucky');
   assert.strictEqual(g.viewFor(s, 1).mode, 'lucky');
   fail(s, 0, { t: 'luckyPick', card: heart });

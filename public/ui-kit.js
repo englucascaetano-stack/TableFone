@@ -38,7 +38,7 @@ window.GameKit = (function () {
   }
 
   const UNO_COLOR = { R: 'r', Y: 'y', G: 'g', B: 'b', W: 'w' };
-  const UNO_LABEL = { S: '⊘', V: '⇄', '+2': '+2', '+4': '+4', C: '★' };
+  const UNO_LABEL = { S: '⊘', V: '⇄', '+2': '+2', '+4': '+4', C: '★', H: '⇆' };
 
   // Carta do Uno: "R-5", "G-S", "B-V", "Y-+2", "W-C", "W-+4".
   function unoCard(card, opts = {}) {

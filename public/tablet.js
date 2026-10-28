@@ -86,11 +86,22 @@ window.TableUI = (function () {
       const actor = v.lastSeat !== null && v.lastSeat !== undefined && /jogou/.test(v.log) ? nameOf(room, v.lastSeat) : null;
       center.append(el('div', 'tb-note', actor ? `${actor} ${v.log}` : v.log));
     }
-    if (v.over) center.append(banner(`${nameOf(room, v.winner)} venceu!`));
+    if (v.pending) center.append(banner(`${nameOf(room, v.pending.by)} jogou +4: ${nameOf(room, v.pending.victim)} aceita ou desafia?`));
+    else if (v.uno && !v.uno.shouted) center.append(banner(`${nameOf(room, v.uno.seat)} está com 1 carta: falta gritar UNO!`));
+    else if (v.manual && v.uno && v.uno.shouted) center.append(banner(`${nameOf(room, v.uno.seat)}: UNO!`));
+    if (v.over) {
+      const board = room.players.map((p) => `${p.name} ${v.scores[p.seat] || 0}`).join(' · ');
+      center.append(banner(v.gameWinner !== null ? `${nameOf(room, v.gameWinner)} chegou a ${v.target} pontos e venceu o jogo!` : `${nameOf(room, v.winner)} zerou a mão e fez ${v.roundPoints} pontos`));
+      center.append(el('div', 'tb-note', `Placar (meta ${v.target}): ${board}`));
+    }
     layout(root, v.players, (i) => seatCard(room, i, {
-      turn: v.turn === i, sub: `${v.counts[i]} carta${v.counts[i] === 1 ? '' : 's'}${v.counts[i] === 1 ? ' · UNO!' : ''}`, extra: backs(v.counts[i], 'uno'),
+      turn: v.turn === i || (v.pending && v.pending.victim === i),
+      sub: `${v.counts[i]} carta${v.counts[i] === 1 ? '' : 's'}${v.counts[i] === 1 && (!v.manual || (v.uno && v.uno.shouted)) ? ' · UNO!' : ''} · ${v.scores[i] || 0} pts`,
+      extra: backs(v.counts[i], 'uno'),
     }), center);
-    return v.over ? `${nameOf(room, v.winner)} venceu a partida.` : `Vez de ${nameOf(room, v.turn)}.`;
+    if (v.over) return v.gameWinner !== null ? `${nameOf(room, v.gameWinner)} venceu o jogo.` : `${nameOf(room, v.winner)} venceu a rodada.`;
+    if (v.pending) return `Aguardando ${nameOf(room, v.pending.victim)} responder ao +4.`;
+    return `Vez de ${nameOf(room, v.turn)}.`;
   };
 
   /* ---------- Truco ---------- */

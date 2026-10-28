@@ -120,7 +120,7 @@ t('piloto automatico: espiao e agentes ausentes passam a vez; so se toda a equip
   assert.deepStrictEqual(g.waitingOn(s, [0]), [0]);
   s = play(s, 0, g.autoMove(s, 0)); assert.strictEqual(s.turn, 1); assert.strictEqual(s.phase, 'clue');
   fail({ ...s, auto: [] }, 1, { t: 'skip' });
-  s = play({ ...s, auto: [1] }, 1, { t: 'clue', word: 'Pista', number: 1 });
+  s = play({ ...s, auto: [1] }, 1, { t: 'clue', word: 'Zzpista', number: 1 });
   assert.deepStrictEqual(g.waitingOn(s, null), [3, 5]);
   assert.deepStrictEqual(g.waitingOn({ ...s, auto: [3] }, [3]), [5]);
   assert.deepStrictEqual(g.waitingOn({ ...s, auto: [3, 5] }, [3, 5]), [3]);
