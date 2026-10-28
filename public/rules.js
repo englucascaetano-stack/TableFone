@@ -143,3 +143,22 @@ window.GameRules = {
     ],
   },
 };
+
+// Simbolos dos jogos (biblioteca): SVG simples 24x24, traco na cor do texto.
+const _svg = (inner) => `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+window.GameIcons = {
+  truco: _svg('<rect x="4" y="5" width="10" height="14" rx="2" transform="rotate(-12 9 12)"/><rect x="10" y="5" width="10" height="14" rx="2" transform="rotate(10 15 12)"/>'),
+  buraco: _svg('<rect x="3" y="6" width="9" height="13" rx="2"/><rect x="8" y="4" width="9" height="13" rx="2"/><rect x="13" y="7" width="8" height="12" rx="2"/>'),
+  caxeta: _svg('<rect x="3" y="5" width="8" height="13" rx="2"/><rect x="9" y="5" width="8" height="13" rx="2" transform="rotate(8 13 11)"/><path d="M19 8v8"/>'),
+  uno: _svg('<rect x="5" y="3" width="14" height="18" rx="3"/><ellipse cx="12" cy="12" rx="3.5" ry="6.5" transform="rotate(35 12 12)"/>'),
+  bang: _svg('<path d="M12 3l2.4 5 5.4.7-4 3.7 1 5.4L12 15l-4.8 2.8 1-5.4-4-3.7 5.4-.7z"/>'),
+  coup: _svg('<path d="M4 18h16l1-10-5 4-4-7-4 7-5-4z"/><path d="M4 21h16"/>'),
+  codenames: _svg('<rect x="4" y="4" width="4.5" height="4.5"/><rect x="9.8" y="4" width="4.5" height="4.5"/><rect x="15.5" y="4" width="4.5" height="4.5"/><rect x="4" y="9.8" width="4.5" height="4.5"/><rect x="9.8" y="9.8" width="4.5" height="4.5"/><rect x="15.5" y="9.8" width="4.5" height="4.5"/><rect x="4" y="15.5" width="4.5" height="4.5"/><rect x="9.8" y="15.5" width="4.5" height="4.5"/><rect x="15.5" y="15.5" width="4.5" height="4.5"/>'),
+  damas: _svg('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2.2"/>'),
+  azul: _svg('<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><path d="M13 13l7 7M20 13l-7 7"/>'),
+  catan: _svg('<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/><circle cx="12" cy="12" r="3"/>'),
+  scrabble: _svg('<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8.5 17l3.5-10 3.5 10M9.7 13.6h4.6"/>'),
+  war: _svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17"/>'),
+  war2: _svg('<circle cx="11" cy="13" r="7.5"/><path d="M3.5 13h15M11 5.5c2.7 2.8 2.7 12.2 0 15M11 5.5c-2.7 2.8-2.7 12.2 0 15M16 4l5 2-5 2z"/>'),
+  paciencia: _svg('<rect x="4" y="4" width="7" height="10" rx="1.5"/><rect x="13" y="4" width="7" height="10" rx="1.5"/><rect x="4" y="16" width="7" height="4" rx="1"/><rect x="13" y="16" width="7" height="4" rx="1"/>'),
+};

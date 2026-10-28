@@ -6,7 +6,11 @@
 (function () {
   const K = window.GameKit;
   const COLOR_NAME = { R: 'vermelho', Y: 'amarelo', G: 'verde', B: 'azul' };
+  const COLOR_LABEL = { R: 'Vermelho', Y: 'Amarelo', G: 'Verde', B: 'Azul' };
+  // simbolos especiais explicados (valor da carta -> [letra do valor, simbolo], texto)
+  const SPECIAL = [[['S', '⊘'], 'Pula a vez do próximo'], [['V', '⇄'], 'Inverte o sentido'], [['+', '+2/+4'], 'Próximo compra cartas'], [['C', '★'], 'Coringa: escolha a cor'], [['H', '⇆'], 'Trocar as Mãos']];
   let pendingWild = null; // carta coringa escolhida, aguardando a cor
+  let chosen = null; // carta comum selecionada, aguardando confirmacao (2o toque ou botao Jogar)
   let pendingColor = null; // cor escolhida para o Trocar as Maos, aguardando o jogador
   let seenVersion = null;
 
@@ -18,6 +22,7 @@
       seenVersion = room.version;
       pendingWild = null;
       pendingColor = null;
+      chosen = null;
     }
 
     if (v.phase === 'lobby') {
@@ -82,25 +87,45 @@
       const hand = K.el('div', `hand${mine.hand.length > 12 ? ' tight' : ''}`);
       mine.hand.forEach((card) => {
         const ok = myTurn && playable.has(card);
-        const c = K.unoCard(card, { dim: myTurn && !ok, selected: pendingWild === card });
+        const c = K.unoCard(card, { dim: myTurn && !ok, selected: pendingWild === card || chosen === card });
         c.addEventListener('click', () => {
           if (!ok) return;
           if (card.startsWith('W-')) {
             pendingWild = pendingWild === card ? null : card;
             pendingColor = null;
+            chosen = null;
             render(el, room, send);
             return;
           }
-          send({ t: 'play', card });
+          if (chosen === card) { chosen = null; send({ t: 'play', card }); return; }  // 2o toque confirma
+          chosen = card;
+          pendingWild = null;
+          render(el, room, send);
         });
         hand.append(c);
       });
       el.append(hand);
+      if (chosen && playable.has(chosen) && myTurn) {
+        const box = K.el('div', 'confirm');
+        box.append(K.unoCard(chosen));
+        const go = K.el('button', null, 'Jogar esta carta');
+        go.type = 'button';
+        go.addEventListener('click', () => { const card = chosen; chosen = null; send({ t: 'play', card }); });
+        const no = K.el('button', 'ghost', 'Escolher outra');
+        no.type = 'button';
+        no.addEventListener('click', () => { chosen = null; render(el, room, send); });
+        const side = K.el('div', 'confirm-btns');
+        side.append(go, no);
+        box.append(side);
+        el.append(box);
+      }
+      const specials = SPECIAL.filter(([sym]) => mine.hand.some((c) => String(c.split('-')[1]).startsWith(sym[0])));
+      if (specials.length) el.append(K.el('div', 'legend', specials.map(([sym, txt]) => `${sym[1]} ${txt}`).join(' · ')));
 
       if (pendingWild && pendingColor === null) {
         const picker = K.el('div', 'colors');
         for (const c of ['R', 'Y', 'G', 'B']) {
-          const b = K.el('button', c.toLowerCase());
+          const b = K.el('button', c.toLowerCase(), COLOR_LABEL[c]);
           b.type = 'button';
           b.setAttribute('aria-label', COLOR_NAME[c]);
           b.addEventListener('click', () => {
@@ -187,7 +212,7 @@
       return `Aguardando ${victim ? victim.name : 'o jogador'} responder ao +4.`;
     }
     if (seat === null) return `Você está assistindo. Vez de ${who(v.turn) ? who(v.turn).name : ''}.`;
-    if (v.turn === seat) return mine && mine.canPass ? 'Jogue a carta comprada ou passe.' : 'Sua vez.';
+    if (v.turn === seat) return mine && mine.canPass ? 'Sua vez: jogue a carta comprada ou passe.' : mine && mine.playable.length ? 'Sua vez: toque numa carta e confirme (ou compre).' : 'Sua vez: você não tem carta que sirva, compre.';
     return `Vez de ${who(v.turn) ? who(v.turn).name : ''}.`;
   }
 

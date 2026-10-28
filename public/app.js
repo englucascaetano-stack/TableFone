@@ -86,14 +86,27 @@ async function renderLibrary() {
     for (const game of games) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'game-card';
+      btn.className = `game-card g-${game.id}`;
+      const icon = document.createElement('span');
+      icon.className = 'gc-icon';
+      icon.innerHTML = (window.GameIcons && window.GameIcons[game.id]) || '';
+      const body = document.createElement('span');
+      body.className = 'gc-body';
       const title = document.createElement('strong');
       title.textContent = game.name;
-      const desc = document.createElement('span');
       const plural = (n) => `${n} jogador${n > 1 ? 'es' : ''}`;
-      const players = game.minPlayers === game.maxPlayers ? plural(game.maxPlayers) : `${game.minPlayers} a ${plural(game.maxPlayers)}`;
-      desc.textContent = `${game.description} ${players}.`;
-      btn.append(title, desc);
+      const players = document.createElement('small');
+      players.className = 'gc-players';
+      players.textContent = game.minPlayers === game.maxPlayers ? plural(game.maxPlayers) : `${game.minPlayers} a ${plural(game.maxPlayers)}`;
+      const desc = document.createElement('span');
+      desc.className = 'gc-desc';
+      // o cartao ja mostra nome e quantidade de jogadores: tira o prefixo "Nome:" e o final "De X a Y jogadores."
+      desc.textContent = game.description.replace(/^[^:.]{1,24}:\s*/, '').replace(/\s*De \d+( a \d+)? jogadores?\.?$/, '').replace(/\s*\d+ a \d+ jogadores\.?$/, '');
+      body.append(title, players, desc);
+      const go = document.createElement('span');
+      go.className = 'gc-go';
+      go.textContent = 'Criar sala';
+      btn.append(icon, body, go);
       btn.addEventListener('click', () => createRoom(game.id));
       box.appendChild(btn);
     }
@@ -214,12 +227,33 @@ function renderRoom(room) {
 
   const waiting = room.game.maxPlayers === 2 && room.players.length < 2;
   $('#status').textContent = waiting ? `Aguardando jogadores. Código da sala: ${room.code}` : status || '';
-  $('#restart').hidden = mySeat === null;
+  {
+    // faixa de turno: destaque em dourado quando a acao e sua
+    const v = room.view || {};
+    const mine = mySeat !== null && !v.over && (v.turn === mySeat || (Array.isArray(v.waiting) && v.waiting.includes(mySeat)));
+    $('#status').classList.toggle('mine', Boolean(mine));
+  }
+  $('#restart').hidden = mySeat === null || (room.view && room.view.phase === 'lobby');
   const others = room.spectators.map((s) => s.name).join(', ');
   if (mySeat === null) $('#watchers').textContent = 'Você está assistindo.';
   else $('#watchers').textContent = others ? `Assistindo: ${others}` : '';
   renderWaiting(room);
   renderTabletPanel(room);
+  // aviso de mudanca no modo tablet (o celular passa a mostrar so a mao, ou volta a mostrar a mesa)
+  const online = Boolean(room.tablet && room.tablet.online);
+  if (current && current.tabletOnline !== undefined && current.tabletOnline !== online && mySeat !== null) {
+    showNotice(online ? 'Tablet conectado. A mesa está na tela compartilhada.' : 'Tablet desconectado. A mesa voltou para o seu celular.');
+  }
+  if (current) current.tabletOnline = online;
+}
+
+let noticeTimer = null;
+function showNotice(text) {
+  const n = $('#notice');
+  n.textContent = text;
+  n.hidden = false;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { n.hidden = true; }, 6000);
 }
 
 /* ---------- Modo tablet (celular): ativar, ver PIN, desativar ---------- */
@@ -268,7 +302,8 @@ async function renderTabletPanel(room) {
     try { current.tabletCode = (await transport.tablet(room.code, 'get')).tcode; } catch { /* mostra sem codigo */ }
   }
   const tcode = current.tabletCode;
-  add('p', 'muted', 'No tablet, abra o site, vá em "Modo tablet" e digite o código do tablet (não é o código da sala):');
+  add('p', 'muted', 'No tablet, abra o site, toque em "Usar este aparelho como tela da mesa" e digite o código do tablet (não é o código da sala):');
+  add('div', 'tb-label', 'Código do tablet');
   add('div', 'tb-pin', tcode || '------');
   add('p', 'muted', t.online ? 'Tablet conectado. Seu celular mostra só a sua mão.' : 'Aguardando o tablet conectar. Enquanto isso, o celular segue mostrando a mesa inteira.');
   if (tcode) {

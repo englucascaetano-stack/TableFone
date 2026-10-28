@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1c1a17">
   <title>Mesa de Jogos</title>
   <meta name="robots" content="noindex, nofollow">
@@ -17,7 +17,10 @@
 </head>
 <body>
   <main id="home" class="screen">
-    <h1>Mesa de Jogos</h1>
+    <header class="brand">
+      <h1>Mesa de Jogos</h1>
+      <p class="tagline">Sua próxima partida começa aqui.</p>
+    </header>
 
     <label class="field">
       <span>Seu nome</span>
@@ -29,27 +32,27 @@
       <input id="key" type="password" autocomplete="off" placeholder="Senha combinada com o grupo">
     </label>
 
-    <section>
-      <h2>Entrar em uma sala</h2>
+    <section class="join-card" aria-labelledby="join-title">
+      <h2 id="join-title">Entrar na sala</h2>
       <form id="join-form" class="row">
-        <input id="code" type="text" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO">
+        <input id="code" type="text" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO" aria-label="Código da sala (4 letras)">
         <button type="submit">Entrar</button>
       </form>
     </section>
 
     <section>
-      <h2>Modo tablet</h2>
-      <p class="muted">Use no tablet que fica na mesa. O código do tablet (diferente do código da sala) aparece no botão "Tablet" de uma sala aberta.</p>
-      <form id="table-form" class="row">
-        <input id="tcode" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO DO TABLET">
-        <button type="submit">Abrir</button>
-      </form>
-    </section>
-
-    <section>
-      <h2>Criar partida</h2>
+      <h2>Escolha um jogo para criar uma sala</h2>
       <div id="library" class="library"></div>
     </section>
+
+    <details class="table-entry">
+      <summary>Usar este aparelho como tela da mesa</summary>
+      <p class="muted">Use no tablet que fica na mesa. O código do tablet (diferente do código da sala) aparece no botão "Tablet" de uma sala aberta.</p>
+      <form id="table-form" class="row">
+        <input id="tcode" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="CÓDIGO DO TABLET" aria-label="Código do tablet (6 caracteres)">
+        <button type="submit">Abrir</button>
+      </form>
+    </details>
 
     <p id="home-error" class="error" role="alert"></p>
   </main>
@@ -67,11 +70,12 @@
       </div>
     </header>
 
+    <p id="notice" class="notice" role="status" hidden></p>
+    <p id="status" class="status turnbar" role="status"></p>
     <div id="opponent" class="player-bar"></div>
     <div id="game-area"></div>
     <div id="me" class="player-bar"></div>
 
-    <p id="status" class="status" role="status"></p>
     <div id="waiting" class="waiting" hidden></div>
     <p id="room-error" class="error" role="alert"></p>
     <div class="actions">
@@ -95,8 +99,8 @@
       <div class="tb-title"><strong id="table-game"></strong><span id="table-code"></span></div>
       <button id="table-full" class="ghost" type="button">Tela cheia</button>
     </header>
-    <div id="table-area" class="tb-area"></div>
     <p id="table-status" class="tb-status" role="status"></p>
+    <div id="table-area" class="tb-area"></div>
     <p id="table-error" class="error" role="alert"></p>
   </main>
 

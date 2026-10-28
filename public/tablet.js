@@ -57,7 +57,7 @@ window.TableUI = (function () {
   const logBox = (lines, title) => {
     const side = el('aside', 'tb-side');
     side.append(el('h3', null, title || 'Histórico'));
-    lines.slice(-14).reverse().forEach((l) => side.append(el('div', 'tb-log', l)));
+    lines.slice(-6).reverse().forEach((l) => side.append(el('div', 'tb-log', l)));
     return side;
   };
 

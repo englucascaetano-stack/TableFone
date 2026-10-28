@@ -57,6 +57,7 @@ window.GameKit = (function () {
       const row = el('div', `pl${p.seat === turnSeat ? ' turn' : ''}${p.seat === mySeat ? ' me' : ''}`);
       if (opts.teamOf) row.classList.add(`team${opts.teamOf(p.seat)}`);
       row.append(el('span', `dot${p.online ? ' on' : ''}`), el('span', 'nm', p.name + (p.seat === mySeat ? ' (você)' : '')));
+      if (opts.host && p.seat === 0) row.append(el('span', 'ex', 'anfitrião'));
       const extra = opts.extra ? opts.extra(p) : '';
       if (extra) row.append(el('span', 'ex', extra));
       box.append(row);
@@ -70,13 +71,17 @@ window.GameKit = (function () {
     const n = room.players.length;
     const box = el('div', 'lobby');
     box.append(el('h2', null, cfg.title));
-    box.append(playerList(room, null));
+    box.append(playerList(room, null, { host: true }));
     const ok = cfg.options ? n >= cfg.min : cfg.allowed ? cfg.allowed(n) : n >= cfg.min;
     const host = room.players.find((p) => p.seat === 0);
     let msg;
-    if (n < cfg.min) msg = `Aguardando jogadores (mínimo ${cfg.min}). Código da sala: ${room.code}`;
+    if (n < cfg.min) msg = `Faltam ${cfg.min - n} jogador${cfg.min - n > 1 ? 'es' : ''} para começar (mínimo ${cfg.min}).`;
     else if (!ok) msg = cfg.badCount || `Número de jogadores não permitido (${n}).`;
-    else msg = `${n} jogadores prontos. Código da sala: ${room.code}`;
+    else msg = host && room.you.seat === 0 ? 'Todos prontos. Toque para começar.' : 'Pronto para começar.';
+    const code = el('div', 'lobby-code');
+    code.append(el('small', null, 'Código da sala'), el('b', null, room.code));
+    box.append(code);
+    box.append(el('p', 'lobby-count', `${n} de ${cfg.max} jogadores`));
     box.append(el('p', 'muted', msg));
     if (room.you.seat === 0) {
       // cfg.options: varias formas de comecar (ex.: 2 ou 4 jogadores); senao, um unico botao.
