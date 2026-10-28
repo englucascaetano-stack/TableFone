@@ -17,6 +17,7 @@ Jogos na biblioteca:
 | Coup | 2 a 6 | Blefe, desafios e bloqueios; 15 cartas de personagem |
 | War | 3 a 6 | Conquista do mundo: dados, cartas, objetivos secretos; mapa de 42 territórios |
 | War II | 3 a 6 | War com Centros Estratégicos, bombardeiros e cartas (regras do manual do War II; mapa lido do tabuleiro) |
+| Azul | 2 a 4 | Montar a parede de mosaicos escolhendo azulejos das fábricas; pontuação por sequências |
 | Código Secreto | 4 a 8 | Duas equipes, espiões dão pistas de uma palavra; 332 palavras em português |
 
 As regras de cada jogo, com as premissas adotadas, estão no começo de `games/<id>/game.js` e na tela de espera de cada jogo.
@@ -99,6 +100,7 @@ Para um jogo suportar isso, exporte `waitingOn(state, auto)` (por quem o jogo es
     node test/buraco.test.js
     node test/caxeta.test.js
     node test/coup.test.js
+    node test/azul.test.js
     node test/codenames.test.js
     node test/war.test.js
     node test/war2.test.js
