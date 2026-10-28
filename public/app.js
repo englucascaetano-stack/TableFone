@@ -496,6 +496,26 @@ $('#restart').addEventListener('click', async () => {
   }
 });
 
+/* ---------- Regras resumidas ---------- */
+$('#rules-btn').addEventListener('click', () => {
+  const room = current && current.room;
+  const rules = room && window.GameRules && window.GameRules[room.game.id];
+  const dlg = $('#rules-dialog');
+  $('#rules-title').textContent = room ? `Regras: ${room.game.name}` : 'Regras';
+  $('#rules-goal').textContent = rules ? rules.goal : 'Regras resumidas ainda não disponíveis para este jogo.';
+  const list = $('#rules-list');
+  list.innerHTML = '';
+  for (const item of rules ? rules.items : []) {
+    const li = document.createElement('li');
+    li.textContent = item;
+    list.appendChild(li);
+  }
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', '');
+});
+$('#rules-close').addEventListener('click', () => $('#rules-dialog').close());
+$('#rules-dialog').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+
 $('#share').addEventListener('click', async () => {
   if (!current) return;
   const url = `${location.origin}${location.pathname}#${current.code}`;

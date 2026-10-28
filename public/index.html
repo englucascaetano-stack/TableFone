@@ -61,7 +61,10 @@
         <strong id="room-game"></strong>
         <span id="room-code"></span>
       </div>
-      <button id="share" class="ghost" type="button">Convidar</button>
+      <div class="head-right">
+        <button id="share" class="ghost" type="button">Convidar</button>
+        <button id="rules-btn" class="ghost" type="button" aria-label="Regras resumidas" title="Regras resumidas">Regras</button>
+      </div>
     </header>
 
     <div id="opponent" class="player-bar"></div>
@@ -79,6 +82,13 @@
     <p id="watchers" class="muted"></p>
   </main>
 
+  <dialog id="rules-dialog" class="rules-dialog" aria-labelledby="rules-title">
+    <h2 id="rules-title"></h2>
+    <p id="rules-goal" class="rules-goal"></p>
+    <ul id="rules-list"></ul>
+    <button id="rules-close" type="button">Fechar</button>
+  </dialog>
+
   <main id="table" class="tablet" hidden>
     <header class="tb-head">
       <button id="table-leave" class="ghost" type="button">Sair</button>
@@ -93,6 +103,7 @@
   <script src="config.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="transport.js"></script>
+  <script src="rules.js"></script>
   <script src="ui-kit.js"></script>
   <script src="app.js"></script>
 </body>

@@ -713,3 +713,12 @@ body.is-tablet { overflow: hidden; }
 .tb-area.plain .sc-wrap > :not(.sc-board) { grid-column: 2; }
 .tb-area.plain .sc-score { grid-template-columns: 1fr; }
 .tb-area.plain .sc-t b { font-size: clamp(0.8rem, 2vw, 1.4rem); }
+
+/* Regras resumidas */
+.head-right { display: flex; gap: 6px; }
+.head-right button { padding: 0 12px; }
+.rules-dialog { width: min(92vw, 520px); max-height: 86dvh; overflow: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.rules-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.rules-dialog h2 { margin: 0 0 6px; color: var(--text); font-size: 1.1rem; }
+.rules-goal { margin: 0 0 8px; color: var(--accent); font-weight: 600; }
+.rules-dialog ul { margin: 0 0 14px; padding-left: 1.1rem; display: grid; gap: 6px; font-size: 0.92rem; line-height: 1.4; }
