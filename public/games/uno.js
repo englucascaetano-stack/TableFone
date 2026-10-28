@@ -107,7 +107,7 @@
           pendingWild = null;
           pendingIdx = null;
           render(el, room, send);
-        }, { label: `${nm}${ok ? '' : ' (indisponível)'}`, pressed: isSel, disabled: !ok });
+        }, { label: `${nm}${ok ? '' : ' (indisponível)'}`, pressed: isSel, disabled: !ok, key: `uno-${idx}` });
         hand.append(c);
       });
       el.append(hand);

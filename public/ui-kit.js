@@ -115,9 +115,19 @@ window.GameKit = (function () {
     if (opts.label) node.setAttribute('aria-label', opts.label);
     if (opts.pressed !== undefined) node.setAttribute('aria-pressed', String(Boolean(opts.pressed)));
     if (opts.disabled) node.setAttribute('aria-disabled', 'true');
-    node.addEventListener('click', onClick);
+    if (opts.key) node.dataset.fkey = opts.key;
+    // A interface se redesenha a cada mudanca: ao operar pelo teclado, devolve o foco ao elemento equivalente do novo desenho.
+    const run = (e) => {
+      if (opts.disabled) return;
+      onClick(e);
+      if (e.type === 'keydown' && opts.key) {
+        const again = document.querySelector(`[data-fkey="${opts.key}"]`);
+        if (again && again !== node) again.focus();
+      }
+    };
+    node.addEventListener('click', run);
     node.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(e); }
     });
     return node;
   }

@@ -103,7 +103,7 @@
           if (!mine.canPlay) return;
           chosen = chosen === idx ? null : idx;   // tocar de novo desmarca; jogar so pelo botao
           render(el, room, send);
-        }, { label: `${c.getAttribute('aria-label')}${mine.canPlay ? '' : ' (indisponível)'}`, pressed: chosen === idx, disabled: !mine.canPlay });
+        }, { label: `${c.getAttribute('aria-label')}${mine.canPlay ? '' : ' (indisponível)'}`, pressed: chosen === idx, disabled: !mine.canPlay, key: `truco-${idx}` });
         hand.append(c);
       });
       el.append(hand);

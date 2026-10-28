@@ -131,7 +131,7 @@
           if (selected.has(i)) selected.delete(i);
           else selected.add(i);
           render(el, room, send);
-        }, { label: c.getAttribute('aria-label'), pressed: selected.has(i) });
+        }, { label: c.getAttribute('aria-label'), pressed: selected.has(i), key: `bu-${i}` });
         hand.append(c);
       });
       el.append(hand);

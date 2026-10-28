@@ -85,7 +85,7 @@
         K.interactive(c, () => {
           selected = selected === i ? null : i;
           render(el, room, send);
-        }, { label: c.getAttribute('aria-label'), pressed: selected === i });
+        }, { label: c.getAttribute('aria-label'), pressed: selected === i, key: `cx-${i}` });
         hand.append(c);
       });
       el.append(hand);
