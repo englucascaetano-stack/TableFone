@@ -135,14 +135,17 @@
         const [a, b] = T.edges[e];
         const [ax, ay] = px(T.verts[a]);
         const [bx, by] = px(T.verts[b]);
-        const hit = svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: 'rgba(255,255,255,0.85)', 'stroke-width': 0.2, 'stroke-linecap': 'round', class: 'ct-hit', tabindex: 0, role: 'button', 'aria-label': 'Construir estrada aqui' });
+        root.append(svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: 'rgba(255,255,255,0.85)', 'stroke-width': 0.2, 'stroke-linecap': 'round', class: 'ct-hit', 'pointer-events': 'none' }));
+        // area de toque maior (invisivel) para o dedo
+        const hit = svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: 'transparent', 'stroke-width': 0.6, 'stroke-linecap': 'round', tabindex: 0, role: 'button', 'aria-label': 'Construir estrada aqui', style: 'cursor:pointer' });
         hit.addEventListener('click', () => onEdge(e));
         root.append(hit);
       }
       const dots = [...spots.settlements.map((x) => [x, 'settle']), ...spots.cities.map((x) => [x, 'city'])];
       for (const [vi, kind] of dots) {
         const [x, y] = px(T.verts[vi]);
-        const hit = svg('circle', { cx: x, cy: y, r: kind === 'city' ? 0.3 : 0.24, fill: 'rgba(255,255,255,0.85)', stroke: '#1c1a17', 'stroke-width': 0.05, class: 'ct-hit', tabindex: 0, role: 'button', 'aria-label': kind === 'city' ? 'Evoluir para cidade' : 'Construir colônia aqui' });
+        root.append(svg('circle', { cx: x, cy: y, r: kind === 'city' ? 0.3 : 0.26, fill: 'rgba(255,255,255,0.9)', stroke: '#1c1a17', 'stroke-width': 0.05, class: 'ct-hit', 'pointer-events': 'none' }));
+        const hit = svg('circle', { cx: x, cy: y, r: 0.5, fill: 'transparent', tabindex: 0, role: 'button', 'aria-label': kind === 'city' ? 'Evoluir para cidade' : 'Construir colônia aqui', style: 'cursor:pointer' });
         hit.addEventListener('click', () => onVertex(vi, kind));
         root.append(hit);
       }

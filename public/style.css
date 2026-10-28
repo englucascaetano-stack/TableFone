@@ -236,9 +236,9 @@ button.danger { background: transparent; color: var(--danger); border-color: var
 /* Paciencia */
 .solitaire {
   --gap: 6px;
-  --cw: calc((min(100vw - 24px, 520px) - 6 * var(--gap)) / 7);
+  --cw: calc((min(100vw - 32px, 520px) - 6 * var(--gap)) / 7);
   --ch: calc(var(--cw) * 1.4);
-  width: min(100vw - 24px, 520px);
+  width: min(100vw - 32px, 520px);
   margin: 0 auto;
   user-select: none;
   -webkit-user-select: none;
@@ -776,3 +776,9 @@ body.is-tablet { overflow: hidden; }
 .lobby-code b { font-size: 2rem; letter-spacing: 0.35em; padding-left: 0.35em; color: var(--accent); }
 .lobby-count { margin: var(--s2) 0 0; font-weight: 700; }
 .tb-label { color: var(--muted); font-size: var(--fs-small); margin-top: var(--s2); }
+
+/* ajustes de toque nos jogos de tabuleiro */
+.sc-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sc-scroll.zoomed .sc-board { width: 190%; }
+.sc-zoom { min-height: 36px; margin: var(--s1) auto; display: block; }
+.az-factories .az-t { width: 36px; height: 36px; }

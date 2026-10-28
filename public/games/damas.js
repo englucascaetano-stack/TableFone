@@ -69,7 +69,8 @@
     if (seat === null) return `Vez das ${room.game.roles[v.turn]}.`;
     if (!myTurn) return 'Aguardando o adversário.';
     const mustCapture = v.legal.some((m) => m.captured.length > 0);
-    return mustCapture ? 'Sua vez. Captura obrigatória.' : 'Sua vez.';
+    if (selected) return path.length ? 'Captura em sequência: toque na próxima casa de destino.' : 'Toque na casa de destino (marcada). Toque na peça de novo para desmarcar.';
+    return mustCapture ? 'Sua vez: captura obrigatória. Toque numa peça destacada.' : 'Sua vez: toque numa peça destacada para ver as casas possíveis.';
   }
 
   // Mostra a jogada na tela na hora; o servidor continua sendo quem decide.

@@ -11,6 +11,7 @@
   let sel = null; // indice do cavalete selecionado
   let order = null; // ordem local do cavalete (embaralhar)
   let askBlank = null; // indice do coringa aguardando a letra
+  let zoomed = false; // tabuleiro ampliado (rolagem lateral)
   let exchangeMode = false;
   let marked = new Set(); // indices marcados para troca
   let seenVersion = null;
@@ -102,7 +103,12 @@
     wrap.append(score);
     wrap.append(K.el('div', 'sc-info', `Saco: ${v.bagCount} peças${v.scoreless ? ` · ${v.scoreless} sem pontuar (fim em 6)` : ''}`));
 
-    wrap.append(boardEl(
+    const zoomBtn = K.el('button', 'ghost sc-zoom', zoomed ? 'Reduzir tabuleiro' : 'Ampliar tabuleiro');
+    zoomBtn.type = 'button';
+    zoomBtn.addEventListener('click', () => { zoomed = !zoomed; redraw(); });
+    wrap.append(zoomBtn);
+    const scroller = K.el('div', `sc-scroll${zoomed ? ' zoomed' : ''}`);
+    scroller.append(boardEl(
       v, room, myTurn && !askBlank && !exchangeMode,
       (r, c) => {
         if (sel === null) return;
@@ -114,6 +120,7 @@
       },
       (r, c) => { placed = placed.filter((p) => !(p.r === r && p.c === c)); redraw(); }
     ));
+    wrap.append(scroller);
 
     if (v.log) wrap.append(K.el('div', 'logline', v.log));
     if (v.last && v.last.kind === 'play') {

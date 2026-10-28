@@ -211,7 +211,8 @@
 
     if (v.over) return `Parabéns! Paciência concluída em ${v.moves} jogadas.`;
     if (seat === null) return `Você está assistindo. Jogadas: ${v.moves}.`;
-    return `Jogadas: ${v.moves}`;
+    if (selected) return 'Toque na coluna ou na fundação de destino. Toque na carta de novo para desmarcar.';
+    return v.legal.length ? `Jogadas: ${v.moves}. Toque numa carta para movê-la, ou no monte para comprar.` : `Jogadas: ${v.moves}. Sem jogadas na mesa: compre do monte${v.canUndo ? ' ou desfaça a última jogada' : ''}.`;
   }
 
   window.GameUI.paciencia = { render };
