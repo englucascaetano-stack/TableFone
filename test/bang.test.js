@@ -492,4 +492,52 @@ t('visoes: papel secreto so para o dono (xerife e mortos publicos)', () => {
   assert.ok(!JSON.stringify(v).includes('"hand":[{'));
 });
 
+t('escolha de personagem: 2 por jogador, nenhum repetido, so o dono ve a oferta', () => {
+  for (const players of [4, 5, 6, 7]) {
+    for (let k = 0; k < 20; k++) {
+      let s = play(lobby(players), 0, { t: 'start' });
+      assert.strictEqual(s.phase, 'pick');
+      const all = s.offers.flat();
+      assert.strictEqual(all.length, players * 2);
+      assert.strictEqual(new Set(all).size, players * 2, 'personagens repetidos');
+      const pub = JSON.stringify(g.view(s));
+      for (const c of all) assert.ok(!pub.includes(`"${c}"`), 'oferta vazou na visao publica');
+      assert.deepStrictEqual(g.viewFor(s, 1).offer, s.offers[1]);
+      assert.strictEqual(g.viewFor(s, 1).offerHp.length, 2);
+      assert.deepStrictEqual(g.waitingOn(s), [...Array(players).keys()]);
+    }
+  }
+});
+
+t('escolha de personagem: valida a escolha e comeca o jogo quando todos escolhem', () => {
+  let s = play(lobby(4), 0, { t: 'start' });
+  const offers = s.offers;
+  fail(s, 0, { t: 'draw' });
+  fail(s, 0, { t: 'charPick', char: s.offers[1][0] }); // carta de outro jogador
+  fail(s, 0, { t: 'charPick', char: 'nenhum' });
+  s = play(s, 2, { t: 'charPick', char: s.offers[2][1] });
+  fail(s, 2, { t: 'charPick', char: s.offers[2][0] }); // ja escolheu
+  assert.strictEqual(s.phase, 'pick');
+  assert.strictEqual(g.view(s).picked[2], true);
+  assert.deepStrictEqual(g.waitingOn(s), [0, 1, 3]);
+  for (const i of [0, 1, 3]) s = play(s, i, { t: 'charPick', char: s.offers[i][i === 1 ? 1 : 0] });
+  assert.strictEqual(s.phase, 'playing');
+  assert.strictEqual(s.chars[2], offers[2][1]);
+  assert.strictEqual(s.chars[1], offers[1][1]);
+  s.chars.forEach((c, i) => {
+    const hp = g._CHARS.find((x) => x.id === c).hp + (s.roles[i] === 'sheriff' ? 1 : 0);
+    assert.strictEqual(s.max[i], hp);
+    assert.strictEqual(s.hands[i].length, hp - (s.roles[i] === 'sheriff' ? 1 : 0) + (i === s.turn && s.stage === 'play' ? 2 : 0));
+  });
+  assert.strictEqual(new Set(s.chars).size, 4);
+});
+
+t('escolha de personagem: piloto automatico escolhe o primeiro e a nova partida volta a escolher', () => {
+  let s = play(lobby(5), 0, { t: 'start' });
+  for (const i of g.waitingOn(s)) { s = play(s, i, g.autoMove(s, i)); }
+  assert.strictEqual(s.phase, 'playing');
+  const r = g.restart(s);
+  assert.strictEqual(r.phase, 'pick');
+});
+
 console.log(`\n${n} testes passaram.`);

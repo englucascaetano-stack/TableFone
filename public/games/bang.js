@@ -67,7 +67,7 @@
         min: 4,
         max: 7,
         rules: [
-          'Papéis secretos: Xerife (revelado), Delegados, Fora-da-lei e Renegado. Cada jogador recebe também um personagem com poder especial.',
+          'Papéis secretos: Xerife (revelado), Delegados, Fora-da-lei e Renegado. Cada jogador recebe 2 personagens diferentes (nunca repetidos na mesa) e escolhe 1; o outro serve de marcador de vida.',
           'Xerife e Delegados vencem eliminando Fora-da-lei e Renegado. Fora-da-lei vencem se o Xerife morrer. O Renegado quer ser o último vivo.',
           'No turno: compre 2 cartas, jogue quantas puder (só 1 BANG! por turno) e descarte até ter tantas cartas quanto pontos de vida.',
           'Distância e alcance contam: o BANG! alcança 1 casa; armas, Mira e Mustang mudam isso. Cartas azuis ficam na mesa.',
@@ -75,6 +75,38 @@
           'Naipes e valores das cartas têm distribuição própria; afetam só Barril, Dinamite, Cadeia e Lucky Duke (que revela 2 cartas e escolhe qual vale).',
         ],
       });
+    }
+
+    if (v.phase === 'pick') {
+      el.innerHTML = '';
+      const nm = (s) => (room.players.find((p) => p.seat === s) || { name: `Jogador ${s + 1}` }).name;
+      const box = K.el('div', 'mesa bg-wrap bg-pick');
+      const done = v.picked.filter(Boolean).length;
+      box.append(K.el('h3', null, 'Escolha do personagem'));
+      if (mine && mine.mode === 'pick') {
+        box.append(K.el('p', 'muted', `Seu papel (secreto): ${ROLE[mine.role]}. ${ROLE_GOAL[mine.role]}`));
+        if (mine.picked === null) {
+          box.append(K.el('p', null, 'Escolha um dos dois personagens. O outro fica de lado, virado para baixo, como marcador de vida.'));
+          mine.offer.forEach((id, k) => {
+            const card = K.el('div', 'bg-char');
+            card.append(K.el('b', null, CHAR[id][0]), K.el('span', 'muted', `${mine.offerHp[k]} vidas${mine.role === 'sheriff' ? ' (Xerife +1)' : ''}`), K.el('p', null, CHAR[id][1]));
+            const b = K.el('button', null, `Ficar com ${CHAR[id][0]}`);
+            b.type = 'button';
+            b.addEventListener('click', () => send({ t: 'charPick', char: id }));
+            card.append(b);
+            box.append(card);
+          });
+        } else {
+          box.append(K.el('p', null, `Você escolheu ${CHAR[mine.picked][0]}. Aguardando os outros.`));
+        }
+      } else {
+        box.append(K.el('p', 'muted', 'Os jogadores estão escolhendo seus personagens.'));
+      }
+      const list = K.el('div', 'plist');
+      for (let i = 0; i < v.players; i++) list.append(K.el('div', 'pl', `${nm(i)}: ${v.picked[i] ? 'escolheu' : 'escolhendo...'}`));
+      box.append(list);
+      el.append(box);
+      return `${done} de ${v.players} escolheram. O Xerife é ${nm(v.sheriff)}.`;
     }
 
     if (room.version !== seenVersion) {

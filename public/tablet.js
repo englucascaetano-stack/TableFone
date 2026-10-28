@@ -265,6 +265,16 @@ window.TableUI = (function () {
   T.bang = function (root, room) {
     const v = room.view;
     if (v.phase === 'lobby') return lobbyScreen(root, room, 'BANG!');
+    if (v.phase === 'pick') {
+      root.innerHTML = '';
+      const box = el('div', 'tb-lobby');
+      box.append(el('h2', null, 'BANG!'), el('p', 'muted', 'Cada jogador escolhe seu personagem no celular.'));
+      const list = el('div', 'plist');
+      for (let i = 0; i < v.players; i++) list.append(el('div', 'pl', `${nameOf(room, i)}: ${v.picked[i] ? 'escolheu' : 'escolhendo...'}`));
+      box.append(list);
+      root.append(box);
+      return `${v.picked.filter(Boolean).length} de ${v.players} escolheram.`;
+    }
     const fill = (t) => String(t).replace(/@(\d)/g, (_, d) => nameOf(room, Number(d)));
     const bcard = (c) => {
       const b = el('span', `bg-card small${BBLUE.includes(c.type) ? ' blue' : ''}`);

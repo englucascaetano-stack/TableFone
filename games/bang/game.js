@@ -392,15 +392,31 @@ function doJail(s) {
 }
 
 /* ---------- criacao ---------- */
-function deal(prev) {
+// Preparacao: cada jogador recebe 2 personagens DIFERENTES (nenhum repetido na mesa) e escolhe 1; o outro fica de costas
+// como marcador de vida (no jogo fisico). Quando todos escolhem, as maos sao dadas e o Xerife abre o jogo.
+function startPick(prev) {
   const players = prev.players;
   const roles = shuffle(ROLES[players].slice());
-  const chars = shuffle(CHARS.map((c) => c.id)).slice(0, players);
-  const max = chars.map((id, i) => CHARS.find((c) => c.id === id).hp + (roles[i] === 'sheriff' ? 1 : 0));
-  const s = {
-    phase: 'playing',
+  const ids = shuffle(CHARS.map((c) => c.id));
+  const offers = Array.from({ length: players }, (_, i) => [ids[2 * i], ids[2 * i + 1]]);
+  return {
+    phase: 'pick',
     players,
     roles,
+    offers,
+    picked: new Array(players).fill(null),
+    log: [],
+  };
+}
+
+function finishPick(s) {
+  const players = s.players;
+  const chars = s.picked.slice();
+  const max = chars.map((id, i) => CHARS.find((c) => c.id === id).hp + (s.roles[i] === 'sheriff' ? 1 : 0));
+  const g = {
+    phase: 'playing',
+    players,
+    roles: s.roles,
     chars,
     hp: max.slice(),
     max,
@@ -409,20 +425,27 @@ function deal(prev) {
     table: Array.from({ length: players }, () => []),
     deck: shuffle(Array.from({ length: CARD_COUNT }, (_, i) => i)),
     discard: [],
-    turn: roles.indexOf('sheriff'),
+    turn: s.roles.indexOf('sheriff'),
     stage: 'start',
     banged: false,
     step: null,
     winner: null,
     log: [],
   };
-  for (let i = 0; i < players; i++) giveCards(s, i, max[i] - (roles[i] === 'sheriff' ? 1 : 0));
-  log(s, 'A partida começou. O Xerife joga primeiro.');
-  beginTurn(s);
-  return s;
+  for (let i = 0; i < players; i++) giveCards(g, i, max[i] - (s.roles[i] === 'sheriff' ? 1 : 0));
+  log(g, 'Personagens escolhidos. O Xerife joga primeiro.');
+  beginTurn(g);
+  return g;
 }
 
-const restart = (state) => (state.players >= MIN_PLAYERS ? deal(state) : state);
+// Usado pelos testes e por quem quer pular a escolha: escolhe sempre o primeiro personagem oferecido.
+function deal(prev) {
+  const s = startPick(prev);
+  s.picked = s.offers.map((o) => o[0]);
+  return finishPick(s);
+}
+
+const restart = (state) => (state.players >= MIN_PLAYERS ? startPick(state) : state);
 
 /* ---------- opcoes de jogada ---------- */
 function targetsFor(s, seat, id) {
@@ -582,7 +605,17 @@ function move(state, seat, req) {
     if (state.phase !== 'lobby') return { error: 'A partida já começou.' };
     if (seat !== 0) return { error: 'Só o anfitrião pode começar.' };
     if (state.players < MIN_PLAYERS) return { error: `São necessários pelo menos ${MIN_PLAYERS} jogadores.` };
-    return { state: deal(state) };
+    return { state: startPick(state) };
+  }
+  if (state.phase === 'pick') {
+    if (!Number.isInteger(seat) || seat < 0 || seat >= state.players) return { error: 'Você não está nesta partida.' };
+    if (req.t !== 'charPick') return { error: 'Escolha o seu personagem primeiro.' };
+    if (state.picked[seat] !== null) return { error: 'Você já escolheu.' };
+    if (!state.offers[seat].includes(req.char)) return { error: 'Escolha um dos dois personagens oferecidos.' };
+    const s = JSON.parse(JSON.stringify(state));
+    s.picked[seat] = req.char;
+    if (s.picked.every((x) => x !== null)) return { state: finishPick(s) };
+    return { state: s };
   }
   if (state.phase !== 'playing') return { error: 'A partida terminou. Use "Nova partida" para jogar outra.' };
   if (seat >= state.players || !state.alive[seat]) return { error: 'Você foi eliminado.' };
@@ -804,6 +837,7 @@ function publicStep(s) {
 
 function view(state) {
   if (state.phase === 'lobby') return { phase: 'lobby', players: state.players, turn: null, draw: false, over: false };
+  if (state.phase === 'pick') return { phase: 'pick', players: state.players, turn: null, picked: state.picked.map((x) => x !== null), sheriff: state.roles.indexOf('sheriff'), draw: false, over: false };
   const ended = state.phase === 'ended';
   return {
     phase: state.phase,
@@ -833,6 +867,7 @@ function view(state) {
 
 function viewFor(state, seat) {
   if (seat === null || seat === undefined || state.phase === 'lobby' || seat >= state.players) return null;
+  if (state.phase === 'pick') return { role: state.roles[seat], mode: 'pick', offer: state.offers[seat], offerHp: state.offers[seat].map((id) => CHARS.find((c) => c.id === id).hp + (state.roles[seat] === 'sheriff' ? 1 : 0)), picked: state.picked[seat], hand: [] };
   const s = state;
   const out = { role: s.roles[seat], char: s.chars[seat], alive: s.alive[seat], hand: s.hands[seat].map(info), dist: [], mode: 'wait' };
   if (s.phase !== 'playing' || !s.alive[seat]) return out;
@@ -880,6 +915,7 @@ function viewFor(state, seat) {
 // Piloto automatico: compra, responde com Errou!/BANG! se tiver, aceita o dano, escolhe a primeira carta no Armazem
 // e encerra o turno sem jogar cartas (descarta o excesso).
 function waitingOn(state) {
+  if (state.phase === 'pick') return state.picked.map((x, i) => (x === null ? i : -1)).filter((i) => i >= 0);
   if (state.phase !== 'playing') return [];
   const st = state.step;
   if (st) {
@@ -892,6 +928,7 @@ function waitingOn(state) {
 }
 
 function autoMove(state, seat) {
+  if (state.phase === 'pick') return state.picked[seat] === null ? { t: 'charPick', char: state.offers[seat][0] } : null;
   const st = state.step;
   const hand = state.hands[seat];
   if (st) {
@@ -944,6 +981,7 @@ module.exports = {
   _CHARS: CHARS,
   _NAME: NAME,
   _deal: deal,
+  _startPick: startPick,
   _dist: dist,
   _rng: rng,
 };

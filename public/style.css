@@ -673,3 +673,5 @@ body.is-tablet { overflow: hidden; }
 .tb-area.plain .ct-wrap > :not(.ct-board) { grid-column: 2; }
 .ct-box button:disabled, .ct-sub button:disabled { opacity: 0.4; cursor: default; }
 .ct-actions button { flex: none; }
+.bg-pick .bg-char { margin: 8px 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); display: grid; gap: 4px; }
+.bg-pick .bg-char p { margin: 4px 0; }

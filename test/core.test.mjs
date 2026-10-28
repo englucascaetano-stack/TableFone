@@ -134,7 +134,7 @@ await t('jogo com maos escondidas: lobby, comecar, visao privada, espectador tar
   assert.strictEqual(jb.seat, 1); assert.strictEqual(jb.mine, null);                     // lobby: sem visao privada
   await fails(handle(db, { action: 'move', code, pid: B, move: { t: 'start' } }), 400);   // so o anfitriao comeca
   const started = await handle(db, { action: 'move', code, pid: A, move: { t: 'start' } });
-  assert.strictEqual(started.mine.hand.length, 7);
+  assert.ok([7, 9].includes(started.mine.hand.length)); // 9 se a primeira carta da mesa for +2 (quem comeca compra 2)
   const row = db.rows.get(code);
   assert.strictEqual(row.view.phase, 'playing');
   for (const h of row.state.hands) for (const c of h) assert.ok(!JSON.stringify(row.view).replace(/"top":"[^"]+"/, '').includes(`"${c}"`), 'mao vazou na view publica');
@@ -145,7 +145,7 @@ await t('jogo com maos escondidas: lobby, comecar, visao privada, espectador tar
   const mc = await handle(db, { action: 'mine', code, pid: C }); assert.strictEqual(mc.mine, null);
   await fails(handle(db, { action: 'mine', code, pid: 'dddddddd-dddd' }), 403);
   const rs = await handle(db, { action: 'restart', code, pid: B });                     // nova mao com os mesmos jogadores
-  assert.strictEqual(rs.mine.hand.length, 7); assert.strictEqual(db.rows.get(code).state.players, 2);
+  assert.ok([7, 9].includes(rs.mine.hand.length)); assert.strictEqual(db.rows.get(code).state.players, 2);
 });
 
 await t('lista de jogos informa quais usam visao privada', async () => {
