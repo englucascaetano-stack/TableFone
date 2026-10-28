@@ -107,6 +107,21 @@ window.GameKit = (function () {
     return `Máximo de ${cfg.max} jogadores.`;
   }
 
+  // Torna um elemento (carta) operavel por toque, teclado (Enter/Espaco) e leitor de tela.
+  // opts: { label, pressed, disabled }. Cartas so de exposicao nao devem usar isto.
+  function interactive(node, onClick, opts = {}) {
+    node.setAttribute('role', 'button');
+    node.tabIndex = opts.disabled ? -1 : 0;
+    if (opts.label) node.setAttribute('aria-label', opts.label);
+    if (opts.pressed !== undefined) node.setAttribute('aria-pressed', String(Boolean(opts.pressed)));
+    if (opts.disabled) node.setAttribute('aria-disabled', 'true');
+    node.addEventListener('click', onClick);
+    node.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); }
+    });
+    return node;
+  }
+
   // Faixa de confirmacao de jogada: previa ampliada da carta + botao principal + "escolher outra".
   function confirmBar({ preview, label, cancelLabel, onConfirm, onCancel, note }) {
     const box = el('div', 'confirm');
@@ -124,5 +139,5 @@ window.GameKit = (function () {
     return box;
   }
 
-  return { el, confirmBar, playingCard, unoCard, playerList, lobby, SUIT, SUIT_NAME };
+  return { el, interactive, confirmBar, playingCard, unoCard, playerList, lobby, SUIT, SUIT_NAME };
 })();

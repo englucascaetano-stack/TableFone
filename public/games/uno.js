@@ -10,7 +10,8 @@
   // simbolos especiais explicados (valor da carta -> [letra do valor, simbolo], texto)
   const SPECIAL = [[['S', '⊘'], 'Pula a vez do próximo'], [['V', '⇄'], 'Inverte o sentido'], [['+', '+2/+4'], 'Próximo compra cartas'], [['C', '★'], 'Coringa: escolha a cor'], [['H', '⇆'], 'Trocar as Mãos']];
   let pendingWild = null; // carta coringa escolhida, aguardando a cor
-  let chosen = null; // carta comum selecionada, aguardando confirmacao (2o toque ou botao Jogar)
+  let pendingIdx = null; // posicao dessa carta na mao
+  let chosen = null; // posicao (na mao) da carta comum selecionada, aguardando o botao Jogar
   let pendingColor = null; // cor escolhida para o Trocar as Maos, aguardando o jogador
   let seenVersion = null;
 
@@ -21,6 +22,7 @@
     if (room.version !== seenVersion) {
       seenVersion = room.version;
       pendingWild = null;
+      pendingIdx = null;
       pendingColor = null;
       chosen = null;
     }
@@ -85,32 +87,36 @@
       const myTurn = v.turn === seat && !v.over && !mine.mustRespond;
       const playable = new Set(mine.playable);
       const hand = K.el('div', `hand${mine.hand.length > 12 ? ' tight' : ''}`);
-      mine.hand.forEach((card) => {
+      mine.hand.forEach((card, idx) => {
         const ok = myTurn && playable.has(card);
-        const c = K.unoCard(card, { dim: myTurn && !ok, selected: pendingWild === card || chosen === card });
-        c.addEventListener('click', () => {
+        const isSel = chosen === idx || (pendingWild === card && pendingIdx === idx);
+        const c = K.unoCard(card, { dim: myTurn && !ok, selected: isSel });
+        const nm = c.getAttribute('aria-label');
+        K.interactive(c, () => {
           if (!ok) return;
           if (card.startsWith('W-')) {
-            pendingWild = pendingWild === card ? null : card;
+            const same = pendingWild === card && pendingIdx === idx;
+            pendingWild = same ? null : card;
+            pendingIdx = same ? null : idx;
             pendingColor = null;
             chosen = null;
             render(el, room, send);
             return;
           }
-          if (chosen === card) { chosen = null; send({ t: 'play', card }); return; }  // 2o toque confirma
-          chosen = card;
+          chosen = chosen === idx ? null : idx;   // tocar de novo desmarca; jogar so pelo botao
           pendingWild = null;
+          pendingIdx = null;
           render(el, room, send);
-        });
+        }, { label: `${nm}${ok ? '' : ' (indisponível)'}`, pressed: isSel, disabled: !ok });
         hand.append(c);
       });
       el.append(hand);
-      if (chosen && playable.has(chosen) && myTurn) {
+      if (chosen !== null && mine.hand[chosen] && playable.has(mine.hand[chosen]) && myTurn) {
         const box = K.el('div', 'confirm');
-        box.append(K.unoCard(chosen));
+        box.append(K.unoCard(mine.hand[chosen]));
         const go = K.el('button', null, 'Jogar esta carta');
         go.type = 'button';
-        go.addEventListener('click', () => { const card = chosen; chosen = null; send({ t: 'play', card }); });
+        go.addEventListener('click', () => { const card = mine.hand[chosen]; chosen = null; send({ t: 'play', card }); });
         const no = K.el('button', 'ghost', 'Escolher outra');
         no.type = 'button';
         no.addEventListener('click', () => { chosen = null; render(el, room, send); });

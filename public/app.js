@@ -139,6 +139,8 @@ function closeRoom() {
   if (current && current.conn) current.conn.close();
   current = null;
   releaseWake();
+  clearTimeout(noticeTimer);
+  $('#notice').hidden = true;
 }
 
 async function enterRoom(code) {
@@ -242,11 +244,16 @@ function renderRoom(room) {
   // aviso de mudanca no modo tablet (o celular passa a mostrar so a mao, ou volta a mostrar a mesa)
   const online = Boolean(room.tablet && room.tablet.online);
   if (current && current.tabletOnline !== undefined && current.tabletOnline !== online && mySeat !== null) {
-    showNotice(online ? 'Tablet conectado. A mesa está na tela compartilhada.' : 'Tablet desconectado. A mesa voltou para o seu celular.');
+    const cards = HAND_GAMES.has(room.game.id);
+    showNotice(online
+      ? (cards ? 'Tablet conectado. A mesa está no tablet: jogue pela sua mão.' : 'Tablet conectado. Continue fazendo as jogadas no celular.')
+      : (cards ? 'Tablet desconectado. A mesa voltou para o seu celular.' : 'Tablet desconectado.'));
   }
   if (current) current.tabletOnline = online;
 }
 
+// Jogos em que, com o tablet ligado, o celular passa a mostrar so a mao; nos demais o tabuleiro continua no celular.
+const HAND_GAMES = new Set(['uno', 'truco', 'caxeta', 'buraco', 'bang', 'coup']);
 let noticeTimer = null;
 function showNotice(text) {
   const n = $('#notice');
@@ -309,7 +316,7 @@ async function renderTabletPanel(room) {
   if (tcode) {
     act('Copiar link do tablet', true, async () => {
       const url = tabletLink(tcode);
-      if (navigator.clipboard) await navigator.clipboard.writeText(url); else prompt('Copie o link:', url);
+      if (navigator.clipboard) { await navigator.clipboard.writeText(url); showNotice('Link do tablet copiado.'); } else prompt('Copie o link:', url);
     });
   }
   act('Gerar novo código', true, async () => {
@@ -560,7 +567,7 @@ $('#share').addEventListener('click', async () => {
     } else if (navigator.clipboard) {
       await navigator.clipboard.writeText(url);
       $('#room-error').textContent = '';
-      $('#status').textContent = 'Link copiado.';
+      showNotice('Link da sala copiado.');
     } else {
       prompt('Copie o link:', url);
     }
@@ -599,3 +606,14 @@ start();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
+
+/* ---------- Menu compacto da sala (celulares estreitos) ---------- */
+$('#menu-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const m = $('#room-menu');
+  m.hidden = !m.hidden;
+  $('#menu-btn').setAttribute('aria-expanded', String(!m.hidden));
+});
+$('#menu-share').addEventListener('click', () => { $('#room-menu').hidden = true; $('#share').click(); });
+$('#menu-rules').addEventListener('click', () => { $('#room-menu').hidden = true; $('#rules-btn').click(); });
+document.addEventListener('click', () => { const m = $('#room-menu'); if (!m.hidden) { m.hidden = true; $('#menu-btn').setAttribute('aria-expanded', 'false'); } });

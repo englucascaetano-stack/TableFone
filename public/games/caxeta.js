@@ -82,10 +82,10 @@
       const hand = K.el('div', 'hand');
       mine.hand.forEach((card, i) => {
         const c = K.playingCard(card, { selected: selected === i });
-        c.addEventListener('click', () => {
+        K.interactive(c, () => {
           selected = selected === i ? null : i;
           render(el, room, send);
-        });
+        }, { label: c.getAttribute('aria-label'), pressed: selected === i });
         hand.append(c);
       });
       el.append(hand);

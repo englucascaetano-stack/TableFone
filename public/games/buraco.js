@@ -127,11 +127,11 @@
       const hand = K.el('div', `hand${mine.hand.length > 14 ? ' tight' : ''}`);
       mine.hand.forEach((card, i) => {
         const c = K.playingCard(card, { selected: selected.has(i) });
-        c.addEventListener('click', () => {
+        K.interactive(c, () => {
           if (selected.has(i)) selected.delete(i);
           else selected.add(i);
           render(el, room, send);
-        });
+        }, { label: c.getAttribute('aria-label'), pressed: selected.has(i) });
         hand.append(c);
       });
       el.append(hand);

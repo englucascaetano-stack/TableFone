@@ -4,7 +4,7 @@
 
 (function () {
   const K = window.GameKit;
-  let chosen = null; // carta selecionada, aguardando confirmacao
+  let chosen = null; // posicao da carta selecionada na mao, aguardando o botao Jogar
   let seenVersion = null;
 
   function render(el, room, send) {
@@ -32,7 +32,7 @@
     }
 
     if (room.version !== seenVersion) { seenVersion = room.version; if (!mine || !mine.canPlay) chosen = null; }
-    if (mine && chosen !== null && !mine.hand.includes(chosen)) chosen = null;
+    if (mine && chosen !== null && chosen >= mine.hand.length) chosen = null;
     el.innerHTML = '';
     const inGame = seat !== null && seat < v.players;
     const nameOf = (s) => (room.players.find((p) => p.seat === s) || { name: `Jogador ${s + 1}` }).name;
@@ -97,23 +97,22 @@
       }
 
       const hand = K.el('div', 'hand');
-      mine.hand.forEach((card) => {
-        const c = K.playingCard(card, { dim: !mine.canPlay, selected: chosen === card });
-        c.addEventListener('click', () => {
+      mine.hand.forEach((card, idx) => {
+        const c = K.playingCard(card, { dim: !mine.canPlay, selected: chosen === idx });
+        K.interactive(c, () => {
           if (!mine.canPlay) return;
-          if (chosen === card) { chosen = null; send({ t: 'play', card }); return; }  // 2o toque confirma
-          chosen = card;
+          chosen = chosen === idx ? null : idx;   // tocar de novo desmarca; jogar so pelo botao
           render(el, room, send);
-        });
+        }, { label: `${c.getAttribute('aria-label')}${mine.canPlay ? '' : ' (indisponível)'}`, pressed: chosen === idx, disabled: !mine.canPlay });
         hand.append(c);
       });
       el.append(hand);
-      if (chosen && mine.canPlay) {
+      if (chosen !== null && mine.canPlay && mine.hand[chosen]) {
         el.append(K.confirmBar({
-          preview: K.playingCard(chosen),
+          preview: K.playingCard(mine.hand[chosen]),
           label: 'Jogar esta carta',
           note: 'Jogada não pode ser desfeita.',
-          onConfirm: () => { const card = chosen; chosen = null; send({ t: 'play', card }); },
+          onConfirm: () => { const card = mine.hand[chosen]; chosen = null; send({ t: 'play', card }); },
           onCancel: () => { chosen = null; render(el, room, send); },
         }));
       }

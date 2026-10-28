@@ -32,7 +32,36 @@ window.TableUI = (function () {
     if (sideEl) grid.append(sideEl);
     root.append(grid);
     if (underEl) root.append(underEl);
+    felt._fit = () => fitSeats(felt, n);
+    requestAnimationFrame(felt._fit);
   }
+
+  // Adapta largura dos assentos, tamanho do texto e raio do circulo ao espaco disponivel e a quantidade de jogadores,
+  // para evitar sobreposicao entre assentos e com o centro da mesa.
+  function fitSeats(felt, n) {
+    const r = felt.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const k = n <= 2 ? 0.26 : n <= 4 ? 0.22 : n <= 6 ? 0.19 : 0.165;
+    const w = Math.max(96, Math.min(210, r.width * k));
+    const seats = [...felt.querySelectorAll('.tb-seat')];
+    seats.forEach((box) => {
+      box.style.width = `${w}px`;
+      box.style.setProperty('--sf', `${Math.max(0.72, Math.min(1, w / 170))}rem`);
+    });
+    // o raio nunca passa da borda da mesa: leva em conta a altura real do maior assento (nomes em 2 linhas)
+    const maxH = Math.max(...seats.map((b) => b.offsetHeight));
+    const rx = Math.min(n >= 7 ? 40 : n >= 5 ? 38 : 36, 49 - ((w / 2) / r.width) * 100);
+    const ry = Math.min(n >= 7 ? 40 : 37, 49 - ((maxH / 2) / r.height) * 100);
+    // mesas estreitas com muitos jogadores: o miolo (monte, carta do topo) encolhe para nao encostar nos assentos
+    const mid = felt.querySelector('.tb-center');
+    if (mid) mid.style.transform = n >= 7 && r.width < 700 ? 'translate(-50%, -50%) scale(0.62)' : '';
+    seats.forEach((box, i) => {
+      const a = (i * 2 * Math.PI) / n;
+      box.style.left = `${50 - rx * Math.sin(a)}%`;
+      box.style.top = `${50 + ry * Math.cos(a)}%`;
+    });
+  }
+  window.addEventListener('resize', () => document.querySelectorAll('.tb-felt').forEach((f) => f._fit && f._fit()));
 
   function seatCard(room, i, { sub, extra, turn, dead, team, badge }) {
     const b = el('div', `tb-pl${turn ? ' turn' : ''}${dead ? ' dead' : ''}${team !== undefined ? ` team${team}` : ''}`);
