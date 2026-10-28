@@ -55,9 +55,9 @@
           'Preparação: os CEs são sorteados (2 exércitos cada) e depois cada jogador ocupa um território vago por vez, com 1 exército. Com 5 jogadores há uma escolha especial.',
           'Reforços: metade dos territórios, mais o bônus de continente (inteiro ou maioria, como na tabela do tabuleiro), mais 1 exército por CE (mínimo 3). Cada CE também dá 1 bombardeiro na sua base aérea. Na primeira rodada todos reforçam e só depois atacam.',
           'Ataque terrestre: até 3 dados contra até 3; o empate favorece a defesa. Ataque aéreo: bombardeiros da base (ou da caixa, com cartas) contra qualquer território inimigo com 2 ou mais exércitos; nunca destrói o último exército.',
-          'Cartas (até 5): 1 carta de território + numeradas valem exércitos, bombardeiros ou, com 2 cartas de território, um transporte. Quem conquista ao menos um território recebe 3 cartas no fim do turno.',
+          'Cartas (até 5): 1 carta de território (ou de continente) + numeradas (+2 a +5) valem exércitos, bombardeiros ou, com 2 cartas de território, um transporte. Quem conquista ao menos um território recebe 3 cartas no fim do turno.',
           'Depois dos ataques: deslocamento entre vizinhos (cada exército uma vez) e aerotransporte entre CEs. Vence quem cumprir o objetivo.',
-          'Aviso: o agrupamento das cartas de território, os valores das cartas numeradas e os objetivos ainda são provisórios (o PDF do manual não traz esses dados).',
+          'Cartas de continente valem para qualquer território do continente. Aviso: as fronteiras do mapa foram lidas de uma foto do tabuleiro e as faces dos dados aéreos (3 lisas, 1, 2 e 3) são uma suposição.',
         ],
       });
     }
@@ -353,7 +353,7 @@
       det.append(K.el('p', 'muted', `Você tem ${mine.owned} territórios e ${v.air[seat]} bombardeiros na base (${mine.box} na caixa). Reforço do próximo turno: ${mine.reinforce}.`));
       const cs = K.el('div', 'wr-cards');
       mine.hand.forEach((c, i) => {
-        const label = c.kind === 'num' ? `Nº ${c.value}` : `${c.kind === 'ce' ? '▲ ' : ''}${c.terrs.map((t) => NAMES[t]).join(' / ')}`;
+        const label = c.kind === 'num' ? `+${c.value} unidades` : c.kind === 'cont' ? `${c.label} (continente)` : `${c.kind === 'ce' ? '▲ ' : ''}${c.terrs.map((t) => NAMES[t]).join(' / ')}`;
         const chip = K.el('button', `wr-card ${c.kind}${sel.has(i) ? ' sel' : ''}`, label);
         chip.type = 'button';
         chip.addEventListener('click', () => { if (sel.has(i)) sel.delete(i); else sel.add(i); cmFrom = null; cmTo = null; rerender(); });

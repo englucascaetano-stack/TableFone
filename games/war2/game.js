@@ -11,12 +11,12 @@
 // 2) ataques terrestres e aéreos; 3) cartas (a qualquer momento); 4) deslocamento e aerotransporte; 5) 3 cartas se conquistou
 // um território (no máximo 5 na mão).
 //
-// NAO FORAM CONFIRMADOS (dados que o PDF do manual nao traz) e estao marcados como provisorios:
-//  - o agrupamento das 21 cartas de territorio que nao sao CE (ha 12 cartas de CE, uma por CE);
-//  - os valores das 28 cartas numeradas (adotado: dez 1, nove 2, nove 3);
-//  - o texto dos 20 objetivos (adotados os 14 do War: 8 de conquista + 6 de destruir uma cor);
+// Dados do jogo: territorios, CEs, tabelas de continente, 33 cartas de territorio/continente, 28 numeradas (2 a 5) e as 20 cartas
+// de objetivo, conferidos com as imagens do tabuleiro e das cartas. Ainda NAO confirmados:
 //  - as faces dos dados aereos (adotado: 3 lisas, 1, 2 e 3);
-//  - fronteiras e ligacoes lidas de uma foto do tabuleiro (ver _map.adj).
+//  - fronteiras e ligacoes lidas de uma foto do tabuleiro (ver _map.adj);
+//  - o uso das cartas de continente (adotado: valem para qualquer territorio do continente);
+//  - "possuir 20 exercitos em Nova York e no Japao" (adotado: 20 em cada um).
 // Nao implementado: opcao do Centro de Informacoes e espionagem.
 
 const MIN_PLAYERS = 3;
@@ -75,19 +75,18 @@ for (const [a, b] of EDGES) {
 }
 
 /* ---------- cartas ----------
-   ids 0..11: cartas de CE (uma por CE); 12..32: demais cartas de territorio (agrupamento provisorio); 33..60: numeradas (1, 2 ou 3). */
-const OTHER_CARDS = [
-  ['Alasca', 'Mackenzie'], ['Groenlândia', 'Labrador'], ['Vancouver', 'Califórnia'], ['México'], ['Cuba'],
-  ['Venezuela', 'Peru'], ['Argentina'],
-  ['Islândia', 'Suécia'], ['Polônia'], ['França'],
-  ['Argélia', 'Sudão'], ['Congo'], ['Madagascar'],
-  ['Aral', 'Omsk'], ['Dudinka', 'Sibéria'], ['Tchita', 'Vladivostok'], ['Mongólia'], ['Índia'], ['Vietnã'],
-  ['Sumatra', 'Bornéu'], ['Nova Guiné'],
+   33 cartas de territorio/continente (12 delas contem um CE) e 28 numeradas: 10 de +2, 8 de +3, 6 de +4 e 4 de +5.
+   ids 0..26: territorios (isolados ou agrupados); 27..32: continentes inteiros; 33..60: numeradas. */
+const TERRITORY_CARDS = [
+  ['África do Sul'], ['Alasca'], ['Alemanha', 'Polônia'], ['Aral', 'Omsk'], ['Argélia'], ['Argentina', 'Peru'], ['Austrália', 'Nova Guiné'],
+  ['Bornéu', 'Sumatra'], ['Brasil'], ['Califórnia', 'Vancouver'], ['China'], ['Congo', 'Sudão', 'Madagascar'], ['Dudinka', 'Sibéria'], ['Egito'],
+  ['França', 'Inglaterra'], ['Groenlândia'], ['Índia', 'Vietnã'], ['Islândia', 'Suécia'], ['Japão'], ['Labrador', 'Ottawa', 'Mackenzie'], ['México', 'Cuba'],
+  ['Mongólia', 'Tchita'], ['Moscou'], ['Nova York'], ['Oriente Médio'], ['Venezuela'], ['Vladivostok'],
 ].map((names) => names.map((n) => idxOf[n]));
-const NUM_VALUES = [...Array(10).fill(1), ...Array(9).fill(2), ...Array(9).fill(3)];
+const NUM_VALUES = [...Array(10).fill(2), ...Array(8).fill(3), ...Array(6).fill(4), ...Array(4).fill(5)];
 const CARDS = [
-  ...CE.map((t) => ({ kind: 'ce', terrs: [t], value: 0 })),
-  ...OTHER_CARDS.map((terrs) => ({ kind: 'terr', terrs, value: 0 })),
+  ...TERRITORY_CARDS.map((terrs) => ({ kind: terrs.some(isCE) ? 'ce' : 'terr', terrs, value: 0 })),
+  ...CONTINENTS.map((c, k) => ({ kind: 'cont', terrs: TERRITORIES.map((t, i) => (t.cont === k ? i : -1)).filter((i) => i >= 0), value: 0, label: c.name })),
   ...NUM_VALUES.map((value) => ({ kind: 'num', terrs: [], value })),
 ];
 const CARD_COUNT = CARDS.length; // 61
@@ -121,41 +120,67 @@ function shuffle(a) {
   return a;
 }
 
-/* ---------- objetivos (provisorios: os 14 do War) ---------- */
-// k: 'cont' (c = continentes, extra = mais um a escolha), 'terr' (n), 'terr2' (n com 2+ exercitos), 'ce' (n Centros Estrategicos), 'kill' (t = cor)
+/* ---------- objetivos (as 20 cartas) ---------- */
+// k: 'cont' (all = continentes inteiros, maj = continentes com maioria, extra = mais um continente inteiro qualquer, armies = [[territorio, minimo]]),
+//    'terr' (n territorios), 'ce' (n CEs), 'ceArmies' (n CEs com min exercitos cada), 'armies' ([[territorio, minimo]]),
+//    'majN' (maioria em n continentes quaisquer), 'kill' (t = cor)
+const T = idxOf;
 const CONQUER_OBJECTIVES = [
-  { k: 'cont', c: [4, 1], extra: 0 },
-  { k: 'cont', c: [4, 3], extra: 0 },
-  { k: 'cont', c: [0, 3], extra: 0 },
-  { k: 'cont', c: [0, 5], extra: 0 },
+  { k: 'cont', all: [0, 3] },
+  { k: 'cont', all: [4, 3] },
+  { k: 'cont', all: [0, 5] },
+  { k: 'cont', all: [4], maj: [2, 3] },
+  { k: 'cont', all: [4, 1] },
+  { k: 'cont', all: [2, 5], extra: 1 },
+  { k: 'armies', list: [[T['Oriente Médio'], 50]] },
   { k: 'terr', n: 24 },
-  { k: 'terr2', n: 18 },
-  { k: 'cont', c: [2, 1], extra: 1 },
-  { k: 'cont', c: [2, 5], extra: 1 },
+  { k: 'ce', n: 8 },
+  { k: 'cont', maj: [2, 4, 0] },
+  { k: 'cont', all: [1, 2], armies: [[T['Alemanha'], 20]] },
+  { k: 'majN', n: 4 },
+  { k: 'ceArmies', n: 5, min: 10 },
+  { k: 'armies', list: [[T['Nova York'], 20], [T['Japão'], 20]] },
 ];
+const KILL_ORDER = [1, 3, 5, 2, 4, 0]; // ordem das cartas: azuis, amarelos, brancos, verdes, pretos, vermelhos
 const FALLBACK_OBJECTIVE = { k: 'ce', n: 3 };
 
-function objectiveText(o) {
-  if (o.k === 'cont') return `Conquistar ${o.c.map((c) => CONTINENTS[c].name).join(' e ')}${o.extra ? ' e mais um continente à sua escolha' : ''}.`;
-  if (o.k === 'terr') return `Conquistar ${o.n} territórios à sua escolha.`;
-  if (o.k === 'terr2') return `Conquistar ${o.n} territórios e ocupar cada um com pelo menos 2 exércitos.`;
+const list = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`);
+const art = (c) => `a ${CONTINENTS[c].name}`;
+const dart = (c) => `da ${CONTINENTS[c].name}`;
+const IN = { 'Oriente Médio': 'no', 'Japão': 'no', 'Alemanha': 'na' };
+const place = (t) => `${IN[TERRITORIES[t].name] || 'em'} ${TERRITORIES[t].name}`;
+
+function objectiveText(o, seat) {
+  if (o.k === 'cont') {
+    const parts = [];
+    if (o.all) parts.push(`Conquistar na totalidade ${list(o.all.map(art))}`);
+    if (o.maj) parts.push(`${o.all ? 'a' : 'Conquistar a'} maioria dos territórios ${list(o.maj.map(dart))}`);
+    let text = parts.join(' e ');
+    if (o.extra) text += ' e outro continente qualquer';
+    if (o.armies) text += ` e ter no mínimo ${o.armies[0][1]} exércitos ${place(o.armies[0][0])}`;
+    return `${text}.`;
+  }
+  if (o.k === 'terr') return `Conquistar ${o.n} territórios quaisquer.`;
   if (o.k === 'ce') return `Conquistar ${o.n} Centros Estratégicos quaisquer.`;
-  return `Destruir completamente os exércitos ${COLOR_PLURAL[o.t]}. Se forem eliminados por outro jogador, conquistar 24 territórios.`;
+  if (o.k === 'ceArmies') return `Conquistar ${o.n} Centros Estratégicos e ter, no mínimo, ${o.min} exércitos em cada um.`;
+  if (o.k === 'majN') return `Conquistar a maioria dos territórios em ${o.n} continentes quaisquer.`;
+  if (o.k === 'armies') return `Possuir ${o.list[0][1]} exércitos ${list(o.list.map(([t]) => place(t)))}${o.list.length > 1 ? ' (essa quantidade em cada um)' : ''}.`;
+  const own = seat === o.t ? ' Você possui esses exércitos: seu objetivo é conquistar 24 territórios.' : '';
+  return `Destruir totalmente os exércitos ${COLOR_PLURAL[o.t]}. Se for você quem os possui, ou se o jogador que os possui for eliminado por outro jogador, o objetivo passa a ser conquistar 24 territórios.${own}`;
 }
 
 function dealObjectives(players) {
-  // objetivos de eliminar cores que nao participam saem do sorteio
-  const deck = [...CONQUER_OBJECTIVES, ...COLOR_NAME.slice(0, players).map((_, t) => ({ k: 'kill', t }))];
-  for (let tries = 0; tries < 1000; tries++) {
-    shuffle(deck);
-    const hand = deck.slice(0, players);
-    if (hand.every((o, seat) => !(o.k === 'kill' && o.t === seat))) return hand.map((o) => JSON.parse(JSON.stringify(o)));
-  }
-  return deck.slice(0, players).map((o, seat) => (o.k === 'kill' && o.t === seat ? { k: 'terr', n: 24 } : o));
+  // objetivos de destruir cores que nao participam saem do sorteio
+  const deck = [...CONQUER_OBJECTIVES, ...KILL_ORDER.filter((t) => t < players).map((t) => ({ k: 'kill', t }))];
+  return shuffle(deck).slice(0, players).map((o) => JSON.parse(JSON.stringify(o)));
 }
 
 const ownedBy = (s, seat) => s.owner.map((o, i) => (o === seat ? i : -1)).filter((i) => i >= 0);
-const continentsOwned = (s, seat) => CONTINENTS.map((_, c) => TERRITORIES.every((t, i) => t.cont !== c || s.owner[i] === seat));
+const contCount = (s, seat, c) => TERRITORIES.filter((t, i) => t.cont === c && s.owner[i] === seat).length;
+const contSize = (c) => TERRITORIES.filter((t) => t.cont === c).length;
+const hasAll = (s, seat, c) => contCount(s, seat, c) === contSize(c);
+const hasMaj = (s, seat, c) => contCount(s, seat, c) >= CONTINENTS[c].major;
+const holds = (s, seat, t, n) => s.owner[t] === seat && s.armies[t] >= n;
 
 function objectiveFor(s, seat) {
   return s.reduced[seat] ? FALLBACK_OBJECTIVE : s.objectives[seat];
@@ -166,16 +191,22 @@ function objectiveDone(s, seat) {
   const mine = ownedBy(s, seat);
   if (o.k === 'kill') {
     const t = o.t;
-    if (!s.alive[t] && s.killedBy[t] === seat) return true;
-    if (s.alive[t]) return false;
-    o = { k: 'terr', n: 24 };
+    if (t !== seat) {
+      if (!s.alive[t] && s.killedBy[t] === seat) return true;
+      if (s.alive[t]) return false;
+    }
+    o = { k: 'terr', n: 24 }; // propria cor, ou alvo eliminado por outro jogador
   }
   if (o.k === 'terr') return mine.length >= o.n;
-  if (o.k === 'terr2') return mine.filter((i) => s.armies[i] >= 2).length >= o.n;
   if (o.k === 'ce') return mine.filter(isCE).length >= o.n;
-  const owned = continentsOwned(s, seat);
-  if (!o.c.every((c) => owned[c])) return false;
-  return !o.extra || owned.some((has, c) => has && !o.c.includes(c));
+  if (o.k === 'ceArmies') return mine.filter((i) => isCE(i) && s.armies[i] >= o.min).length >= o.n;
+  if (o.k === 'majN') return CONTINENTS.filter((_, c) => hasMaj(s, seat, c)).length >= o.n;
+  if (o.k === 'armies') return o.list.every(([t, n]) => holds(s, seat, t, n));
+  if (o.all && !o.all.every((c) => hasAll(s, seat, c))) return false;
+  if (o.maj && !o.maj.every((c) => hasMaj(s, seat, c))) return false;
+  if (o.extra && !CONTINENTS.some((_, c) => !(o.all || []).includes(c) && hasAll(s, seat, c))) return false;
+  if (o.armies && !o.armies.every(([t, n]) => holds(s, seat, t, n))) return false;
+  return true;
 }
 
 /* ---------- estado ---------- */
@@ -645,7 +676,7 @@ function view(state) {
     lastAir: state.lastAir,
     conquered: state.conquered,
     winner: state.winner,
-    reveal: ended ? state.objectives.map((o, seat) => objectiveText(objectiveFor(state, seat))) : null,
+    reveal: ended ? state.objectives.map((o, seat) => objectiveText(objectiveFor(state, seat), seat)) : null,
     log: state.log,
     draw: false,
     over: ended,
@@ -658,9 +689,9 @@ function viewFor(state, seat) {
   const hand = state.hands[seat];
   const playing = state.phase === 'playing';
   return {
-    objective: objectiveText(objectiveFor(state, seat)),
+    objective: objectiveText(objectiveFor(state, seat), seat),
     done: objectiveDone(state, seat),
-    hand: hand.map((id) => ({ id, kind: CARDS[id].kind, terrs: CARDS[id].terrs, value: CARDS[id].value })),
+    hand: hand.map((id) => ({ id, kind: CARDS[id].kind, terrs: CARDS[id].terrs, value: CARDS[id].value, label: CARDS[id].label || null })),
     box: PLANES - state.base[seat],
     owned: ownedBy(state, seat).length,
     canPlace: mine && playing && state.stage === 'place' && !state.occupy,
@@ -727,5 +758,7 @@ module.exports = {
   _deal: deal,
   _reinforcement: reinforcement,
   _objectiveDone: objectiveDone,
+  _objectiveText: objectiveText,
+  _objectives: CONQUER_OBJECTIVES,
   _airCombat: airCombat,
 };

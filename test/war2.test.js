@@ -40,14 +40,23 @@ t('mapa: 43 territorios (10/4/7/6/12/4), 12 CEs, vizinhanca simetrica e conexa; 
   assert.deepStrictEqual(M.continents.map((c) => [c.total, c.major, c.maj]), [[7, 6, 5], [3, 3, 2], [7, 4, 5], [4, 4, 3], [10, 7, 7], [3, 3, 2]]);
 });
 
-t('cartas: 61 (12 CE, 21 territorios, 28 numeradas); todo territorio esta em exatamente uma carta', () => {
-  assert.strictEqual(M.cards.length, 61);
-  assert.strictEqual(M.cards.filter((c) => c.kind === 'ce').length, 12);
-  assert.strictEqual(M.cards.filter((c) => c.kind === 'terr').length, 21);
-  assert.strictEqual(M.cards.filter((c) => c.kind === 'num').length, 28);
-  const covered = M.cards.flatMap((c) => c.terrs).sort((a, b) => a - b);
+t('cartas: 61 (27 de territorio, 6 de continente, 28 numeradas 2/3/4/5); cada territorio em exatamente uma carta; 12 cartas com CE', () => {
+  const C = M.cards;
+  assert.strictEqual(C.length, 61);
+  assert.strictEqual(C.filter((c) => c.kind === 'ce').length, 12);
+  assert.strictEqual(C.filter((c) => c.kind === 'terr').length, 15);
+  assert.strictEqual(C.filter((c) => c.kind === 'cont').length, 6);
+  const nums = C.filter((c) => c.kind === 'num');
+  assert.strictEqual(nums.length, 28);
+  assert.deepStrictEqual([2, 3, 4, 5].map((v) => nums.filter((c) => c.value === v).length), [10, 8, 6, 4]);
+  const covered = C.filter((c) => c.kind === 'ce' || c.kind === 'terr').flatMap((c) => c.terrs).sort((a, b) => a - b);
   assert.deepStrictEqual(covered, Array.from({ length: 43 }, (_, i) => i));
-  M.cards.filter((c) => c.kind === 'ce').forEach((c) => assert.ok(M.ce.includes(c.terrs[0])));
+  M.ce.forEach((ce) => assert.strictEqual(C.filter((c) => c.kind === 'ce' && c.terrs.includes(ce)).length, 1));
+  C.filter((c) => c.kind === 'cont').forEach((c) => c.terrs.forEach((t) => assert.strictEqual(M.territories[t].cont, M.territories[c.terrs[0]].cont)));
+  assert.deepStrictEqual(C.filter((c) => c.kind === 'cont').map((c) => c.terrs.length), [10, 4, 7, 6, 12, 4]);
+  const find = (n) => C.find((c) => c.kind !== 'num' && c.terrs.includes(id(n)));
+  assert.deepStrictEqual(find('Sudão').terrs.map((t) => M.territories[t].name), ['Congo', 'Sudão', 'Madagascar']);
+  assert.deepStrictEqual(find('Ottawa').terrs.map((t) => M.territories[t].name), ['Labrador', 'Ottawa', 'Mackenzie']);
 });
 
 t('preparacao com 3, 4 e 6 jogadores: CEs sorteados com 2 exercitos, ocupacao um a um a partir do distribuidor', () => {
@@ -214,7 +223,7 @@ t('cartas: exercitos (1 + numeradas), ataque aereo pela caixa, transporte com 2 
   const few = plain(s); few.base[seat] = 9; fail(few, seat, { t: 'cardAir', cards: [2, 3], terr: foeT });
   reset();
   // transporte
-  const a = s.owner.indexOf(seat); const b = s.owner.map((o, i) => (o === seat && i !== a ? i : -1)).find((i) => i >= 0);
+  const a = s.owner.indexOf(seat); const b = s.owner.map((o, i) => (o === seat && i !== a && cardOf(i) !== cardOf(a) ? i : -1)).find((i) => i >= 0);
   const tr = plain(s); tr.armies[a] = 6; tr.hands[seat] = [cardOf(a), cardOf(b), cardOf(foeT)];
   r = play(tr, seat, { t: 'cardMove', cards: [0, 1], from: a, to: b, n: 5 });
   assert.strictEqual(r.armies[a], 1); assert.strictEqual(r.armies[b], tr.armies[b] + 5);
@@ -259,30 +268,74 @@ t('deslocamento: vizinhos, cada exercito move uma vez, aerotransporte entre CEs,
   fail(s, seat, { t: 'shift', from: ceA, to: a, n: 1 }); // CE para territorio comum nao vizinho
 });
 
-t('objetivos: CE, destruir cor so entre cores presentes, objetivo vira 3 CEs com 1 territorio', () => {
-  for (let k = 0; k < 30; k++) {
-    const s = play(lobby(3), 0, { t: 'start' });
-    s.objectives.forEach((o, seat) => { if (o.k === 'kill') { assert.ok(o.t < 3); assert.notStrictEqual(o.t, seat); } });
+t('objetivos: as 20 cartas (14 de conquista e 6 de destruir cor); cores ausentes saem do sorteio', () => {
+  assert.strictEqual(g._objectives.length, 14);
+  for (let k = 0; k < 60; k++) {
+    const players = 3 + (k % 4);
+    const st = play(lobby(players), 0, { t: 'start' });
+    assert.strictEqual(new Set(st.objectives.map((o) => JSON.stringify(o))).size, players);
+    st.objectives.forEach((o) => { if (o.k === 'kill') assert.ok(o.t < players); });
   }
-  const base = running(3);
-  const st = plain(base); st.objectives = [{ k: 'terr', n: 99 }, { k: 'terr', n: 99 }, { k: 'terr', n: 99 }];
-  st.owner = new Array(43).fill(1); st.owner[0] = 0; st.alive = [true, true, true]; st.reduced = [false, false, false];
-  const ces = M.ce.slice(0, 3); const ok = plain(st); ces.forEach((c) => { ok.owner[c] = 0; }); ok.reduced[0] = true;
-  assert.ok(g._objectiveDone(ok, 0)); ok.reduced[0] = false; assert.ok(!g._objectiveDone(ok, 0));
-  const kill = plain(st); kill.objectives[0] = { k: 'kill', t: 1 };
+  const texts = g._objectives.map((o) => g._objectiveText(o, 0));
+  assert.ok(texts.includes('Possuir 50 exércitos no Oriente Médio.'));
+  assert.ok(texts.includes('Conquistar 8 Centros Estratégicos quaisquer.'));
+  assert.ok(texts.includes('Conquistar na totalidade a Ásia e a maioria dos territórios da Europa e da África.'));
+});
+
+t('objetivos: avaliacao de cada tipo', () => {
+  const base = plain(running(3));
+  const mk = (o, owner, armies) => { const st = plain(base); st.objectives = [o, { k: 'terr', n: 99 }, { k: 'terr', n: 99 }]; st.owner = owner; st.alive = [true, true, true]; st.reduced = [false, false, false]; if (armies) st.armies = armies; return st; };
+  const allOf = (f) => M.territories.map((x, i) => (f(x, i) ? 0 : 1));
+  const cont = (...cs) => allOf((x) => cs.includes(x.cont));
+  const maj = (c) => M.continents[c].major;
+  const some = (c, k) => M.territories.map((x, i) => (x.cont === c ? i : -1)).filter((i) => i >= 0).slice(0, k);
+  // continentes inteiros
+  assert.ok(g._objectiveDone(mk({ k: 'cont', all: [0, 3] }, cont(0, 3)), 0)); assert.ok(!g._objectiveDone(mk({ k: 'cont', all: [0, 3] }, cont(0)), 0));
+  // totalidade da Asia + maioria da Europa e da Africa
+  const o4 = { k: 'cont', all: [4], maj: [2, 3] };
+  const own4 = cont(4); [...some(2, maj(2)), ...some(3, maj(3))].forEach((i) => { own4[i] = 0; });
+  assert.ok(g._objectiveDone(mk(o4, own4), 0)); own4[some(3, 1)[0]] = 1; own4[some(3, 2)[1]] = 1; assert.ok(!g._objectiveDone(mk(o4, own4), 0));
+  // Europa + Oceania + outro continente
+  assert.ok(g._objectiveDone(mk({ k: 'cont', all: [2, 5], extra: 1 }, cont(2, 5, 1)), 0)); assert.ok(!g._objectiveDone(mk({ k: 'cont', all: [2, 5], extra: 1 }, cont(2, 5)), 0));
+  // maioria em 3 continentes e em 4 quaisquer
+  const m3 = allOf(() => false); [...some(2, maj(2)), ...some(4, maj(4)), ...some(0, maj(0))].forEach((i) => { m3[i] = 0; });
+  assert.ok(g._objectiveDone(mk({ k: 'cont', maj: [2, 4, 0] }, m3), 0)); assert.ok(!g._objectiveDone(mk({ k: 'majN', n: 4 }, m3), 0));
+  some(1, maj(1)).forEach((i) => { m3[i] = 0; }); assert.ok(g._objectiveDone(mk({ k: 'majN', n: 4 }, m3), 0));
+  // exercitos
+  const army = new Array(43).fill(1); army[id('Oriente Médio')] = 50;
+  assert.ok(g._objectiveDone(mk({ k: 'armies', list: [[id('Oriente Médio'), 50]] }, cont(4), army), 0));
+  army[id('Oriente Médio')] = 49; assert.ok(!g._objectiveDone(mk({ k: 'armies', list: [[id('Oriente Médio'), 50]] }, cont(4), army), 0));
+  const ny = new Array(43).fill(1); ny[id('Nova York')] = 20; ny[id('Japão')] = 20; const o20 = { k: 'armies', list: [[id('Nova York'), 20], [id('Japão'), 20]] };
+  assert.ok(g._objectiveDone(mk(o20, allOf(() => true), ny), 0)); ny[id('Japão')] = 19; assert.ok(!g._objectiveDone(mk(o20, allOf(() => true), ny), 0));
+  const ger = new Array(43).fill(1); ger[id('Alemanha')] = 20; const og = { k: 'cont', all: [1, 2], armies: [[id('Alemanha'), 20]] };
+  assert.ok(g._objectiveDone(mk(og, cont(1, 2), ger), 0)); ger[id('Alemanha')] = 5; assert.ok(!g._objectiveDone(mk(og, cont(1, 2), ger), 0));
+  // CEs
+  const ces = allOf(() => false); M.ce.slice(0, 8).forEach((c) => { ces[c] = 0; });
+  assert.ok(g._objectiveDone(mk({ k: 'ce', n: 8 }, ces), 0)); ces[M.ce[7]] = 1; assert.ok(!g._objectiveDone(mk({ k: 'ce', n: 8 }, ces), 0));
+  const ca = allOf(() => false); M.ce.slice(0, 5).forEach((c) => { ca[c] = 0; }); const arm = new Array(43).fill(1); M.ce.slice(0, 5).forEach((c) => { arm[c] = 10; });
+  assert.ok(g._objectiveDone(mk({ k: 'ceArmies', n: 5, min: 10 }, ca, arm), 0)); arm[M.ce[0]] = 9; assert.ok(!g._objectiveDone(mk({ k: 'ceArmies', n: 5, min: 10 }, ca, arm), 0));
+  // destruir cor: vence quem elimina; eliminado por outro ou propria cor viram 24 territorios
+  const kill = mk({ k: 'kill', t: 1 }, allOf((x, i) => i < 10));
   assert.ok(!g._objectiveDone(kill, 0)); kill.alive[1] = false; kill.killedBy[1] = 0; assert.ok(g._objectiveDone(kill, 0));
-  kill.killedBy[1] = 2; assert.ok(!g._objectiveDone(kill, 0));
-  // reduzido a 1 territorio na pratica: atacante deixa o defensor com 1
+  kill.killedBy[1] = 2; assert.ok(!g._objectiveDone(kill, 0)); kill.owner = allOf((x, i) => i < 24); assert.ok(g._objectiveDone(kill, 0));
+  const own = mk({ k: 'kill', t: 0 }, allOf((x, i) => i < 24)); assert.ok(g._objectiveDone(own, 0));
+  assert.ok(g._objectiveText({ k: 'kill', t: 0 }, 0).includes('Você possui esses exércitos'));
+});
+
+t('objetivo vira 3 CEs quando o jogador fica com 1 territorio', () => {
   const duel = running(3); const seat = duel.turn; const foe = (seat + 1) % 3;
   duel.objectives = duel.objectives.map(() => ({ k: 'terr', n: 99 }));
   duel.owner = duel.owner.map((o) => (o === foe ? (seat + 2) % 3 : o));
   const keep = id('Congo'), lose = id('Egito');
-  duel.owner[keep] = foe; duel.owner[lose] = foe; duel.owner.forEach((o, i) => { if (o === foe && i !== keep && i !== lose) duel.owner[i] = (seat + 2) % 3; });
+  duel.owner[keep] = foe; duel.owner[lose] = foe;
   const from = id('Argélia'); duel.owner[from] = seat; duel.armies[from] = 8; duel.armies[lose] = 1; duel.stage = 'attack'; duel.occupy = null;
+  const keepThree = (st) => { st.owner = st.owner.map((o, i) => (o === foe && i !== keep && i !== lose ? (seat + 2) % 3 : o)); return st; };
+  keepThree(duel);
   setRolls(6, 6, 6, 1);
   const r = play(duel, seat, { t: 'attack', from, to: lose });
   reset();
   assert.ok(r.reduced[foe]); assert.deepStrictEqual(r.alive, [true, true, true]);
+  assert.ok(g.viewFor(r, foe).objective.includes('3 Centros Estratégicos'));
 });
 
 t('visoes: publica nao traz objetivos nem maos; privada so as proprias', () => {
