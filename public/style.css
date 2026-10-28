@@ -641,3 +641,35 @@ body.is-tablet { overflow: hidden; }
 .tb-lobby h2 { font-size: 2rem; color: var(--text); }
 .tb-lobby .pl.off { opacity: 0.5; }
 @media (max-width: 760px) { .tb-grid.with-side { grid-template-columns: 1fr; } .tb-side { max-height: none; } }
+
+/* Catan */
+.ct-wrap { max-width: 560px; margin: 0 auto; }
+.ct-board { width: 100%; height: auto; max-height: 70vh; display: block; border-radius: 10px; touch-action: manipulation; }
+.ct-hit { cursor: pointer; animation: ctpulse 1.2s ease-in-out infinite; }
+@keyframes ctpulse { 50% { opacity: 0.55; } }
+.ct-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 8px 0; font-size: 0.8rem; color: var(--muted); }
+.ct-dice { display: inline-flex; gap: 6px; align-items: center; }
+.ct-die { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 6px; background: #f4ead2; color: #1c1a17; font-weight: 700; }
+.ct-players { display: grid; gap: 6px; margin: 8px 0; }
+.ct-pl { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.ct-pl.turn { border-color: var(--accent); }
+.ct-pl small { grid-column: 1 / -1; color: var(--muted); font-size: 0.72rem; }
+.ct-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #000; }
+.ct-pts { font-weight: 700; color: var(--accent); }
+.ct-me, .ct-box { margin: 10px 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.ct-me h3, .ct-box h3, .ct-sub h3 { margin: 0 0 6px; font-size: 0.85rem; color: var(--muted); }
+.ct-hand, .ct-dev, .ct-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.ct-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 8px; border-left: 6px solid var(--rc); background: var(--bg); font-size: 0.8rem; }
+.ct-chip.zero { opacity: 0.4; }
+.ct-card { padding: 4px 8px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); font-size: 0.78rem; }
+.ct-actions button.on { background: var(--accent); color: var(--accent-text); }
+.ct-sub { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.ct-step { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.ct-step .ct-sname { width: 76px; font-size: 0.82rem; }
+.ct-step b { min-width: 1.5em; text-align: center; }
+.ct-resp { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; font-size: 0.85rem; }
+.tb-area.plain .ct-wrap { max-width: none; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.tb-area.plain .ct-wrap > .ct-board { grid-row: 1 / span 4; max-height: calc(100dvh - 150px); }
+.tb-area.plain .ct-wrap > :not(.ct-board) { grid-column: 2; }
+.ct-box button:disabled, .ct-sub button:disabled { opacity: 0.4; cursor: default; }
+.ct-actions button { flex: none; }
