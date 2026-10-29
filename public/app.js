@@ -586,9 +586,91 @@ window.addEventListener('hashchange', route);
 $('#name').value = store.get('name') || '';
 
 $('#key').addEventListener('change', () => {
-  store.set('key', $('#key').value);
+  store.set('key', $('#key').value.trim());
   $('#home-error').textContent = '';
   renderLibrary();
+  checkMaster();
+});
+
+/* ---------- Painel do mestre: emitir e revogar codigos de acesso ---------- */
+async function checkMaster() {
+  const box = $('#admin');
+  try {
+    const r = accessKey() && typeof transport.admin === 'function' ? await transport.admin('admin_whoami', {}) : { master: false };
+    box.hidden = !r.master;
+    if (r.master && $('#admin-details').open) loadAdmin();
+  } catch {
+    box.hidden = true;
+  }
+}
+
+function statusOf(c) {
+  if (c.revoked_at) return 'revogado';
+  if (c.expires_at && new Date(c.expires_at) <= new Date()) return 'vencido';
+  return 'ativo';
+}
+
+async function loadAdmin() {
+  $('#admin-error').textContent = '';
+  try {
+    const { codes } = await transport.admin('admin_list', {});
+    const ul = $('#admin-list');
+    ul.innerHTML = '';
+    for (const c of codes) {
+      const li = document.createElement('li');
+      const st = statusOf(c);
+      const txt = document.createElement('span');
+      const fmt = (d) => new Date(d).toLocaleDateString('pt-BR');
+      txt.textContent = `${c.label} · ${st}${c.expires_at && st === 'ativo' ? ` · até ${fmt(c.expires_at)}` : ''}${c.last_used_at ? ` · usado em ${fmt(c.last_used_at)}` : ' · nunca usado'}`;
+      li.appendChild(txt);
+      if (st === 'ativo') {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'danger';
+        b.textContent = 'Revogar';
+        b.addEventListener('click', async () => {
+          if (!confirm(`Revogar o código de ${c.label}? Essa pessoa perde o acesso.`)) return;
+          try { await transport.admin('admin_revoke', { id: c.id }); loadAdmin(); } catch (err) { $('#admin-error').textContent = err.message; }
+        });
+        li.appendChild(b);
+      }
+      ul.appendChild(li);
+    }
+    if (!codes.length) ul.textContent = 'Nenhum código emitido ainda.';
+  } catch (err) {
+    $('#admin-error').textContent = err.message;
+  }
+}
+
+$('#admin-details').addEventListener('toggle', () => { if ($('#admin-details').open) loadAdmin(); });
+$('#admin-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('#admin-error').textContent = '';
+  try {
+    const days = $('#admin-days').value.trim();
+    const r = await transport.admin('admin_create', { label: $('#admin-label').value, days: days === '' ? null : Number(days) });
+    const box = $('#admin-new');
+    box.hidden = false;
+    box.innerHTML = '';
+    const info = document.createElement('div');
+    info.textContent = `Código de ${r.label}${r.expires_at ? ` (vale até ${new Date(r.expires_at).toLocaleDateString('pt-BR')})` : ''}. Anote ou envie agora: ele não será mostrado de novo.`;
+    const code = document.createElement('strong');
+    code.className = 'admin-code';
+    code.textContent = r.code;
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'ghost';
+    copy.textContent = 'Copiar código';
+    copy.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(r.code); copy.textContent = 'Copiado'; } catch { prompt('Copie o código:', r.code); }
+    });
+    box.append(info, code, copy);
+    $('#admin-label').value = '';
+    $('#admin-days').value = '';
+    loadAdmin();
+  } catch (err) {
+    $('#admin-error').textContent = err.message;
+  }
 });
 
 async function start() {
@@ -597,6 +679,7 @@ async function start() {
     $('#key').value = accessKey();
   }
   renderLibrary();
+  checkMaster();
   route();
 }
 

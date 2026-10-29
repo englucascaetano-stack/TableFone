@@ -52,6 +52,7 @@ window.createTransport = function createTransport({ pid, getKey }) {
     return {
       mode: 'cloud',
       needsKey: async () => true,
+      admin: (action, body) => call(action, body || {}),
       games,
       async create(game, name) {
         return call('create', { game, name });

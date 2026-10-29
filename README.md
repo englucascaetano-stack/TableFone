@@ -57,13 +57,13 @@ iPhone participa normalmente como cliente (Safari). Só não serve como servidor
 Arquitetura:
 
 - **Telas**: arquivos estáticos da pasta `public/` (GitHub Pages ou outra hospedagem estática).
-- **Regras e partidas**: Edge Function `mesa` no Supabase (`supabase/functions/mesa`). Valida cada jogada e exige a senha do grupo.
+- **Regras e partidas**: Edge Function `mesa` no Supabase (`supabase/functions/mesa`). Valida cada jogada e exige um código de acesso (do mestre ou emitido por ele).
 - **Tempo real**: o celular lê a partida pelo Supabase Realtime (tabela `rooms`, somente leitura). Os dados privados ficam em `rooms_private`, que só a função acessa.
 - **Conexão**: `public/config.js`, que **não fica no repositório**. É gerado no deploy a partir das Variáveis `SUPABASE_URL` e `SUPABASE_KEY` do GitHub (modelo em `public/config.example.js`).
 
 Publicar:
 
-1. A senha do grupo é o segredo `ACCESS_KEY` da função: Supabase > Edge Functions > Secrets.
+1. **Acesso**: o segredo `MASTER_KEY` (Supabase > Edge Functions > Secrets) é o código do mestre e só você deve saber. Digitando-o no campo "Código de acesso" da tela inicial aparece o "Painel do mestre", onde você gera um código por pessoa (nome + validade opcional) e pode revogá-lo. Os códigos ficam na tabela `access_codes` só como hash (migração em `supabase/migrations`). O segredo antigo `ACCESS_KEY` (senha única do grupo) ainda vale se existir; apague-o para que só os códigos emitidos funcionem.
 2. Alterou regras em `games/<id>/game.js`? Rode `node scripts/build-edge.js` e publique a função de novo
    (a cópia em `supabase/functions/mesa/games/` é gerada e não deve ser editada à mão).
 3. Publicação: o workflow `.github/workflows/pages.yml` envia `public/` ao GitHub Pages a cada push na `main`. Em Settings > Pages, fonte = GitHub Actions.

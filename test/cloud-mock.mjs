@@ -6,9 +6,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handle, HttpError } from '../supabase/functions/mesa/core.mjs';
+import { AuthError, adminHandle, checkAccess, clearCache } from '../supabase/functions/mesa/auth.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
-const KEY = 'segredo';
+const ENV = { ACCESS_KEY: 'segredo', MASTER_KEY: 'mestre' }; // senha antiga (legado) e codigo do mestre
+export const codes = [];
+const adb = {
+  async findCode(hash) { return structuredClone(codes.find((r) => r.code_hash === hash) || null); },
+  async touchCode(id) { const r = codes.find((x) => x.id === id); if (r) r.last_used_at = new Date().toISOString(); },
+  async listCodes() { return codes.map(({ code_hash, ...r }) => ({ ...r })); },
+  async createCode(c) { const r = { id: crypto.randomUUID(), created_at: new Date().toISOString(), revoked_at: null, last_used_at: null, ...c }; codes.push(r); return { id: r.id }; },
+  async revokeCode(id) { const r = codes.find((x) => x.id === id); if (r) r.revoked_at = new Date().toISOString(); },
+};
 export const rows = new Map();
 const presence = new Map(); // codigo da sala -> Map(chave -> ultimo batimento)
 
@@ -83,7 +92,8 @@ export function start(port) {
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
     if (url.pathname === '/functions/v1/mesa') {
       const send = (s, b) => { res.writeHead(s, { ...cors, 'Content-Type': 'application/json' }); res.end(JSON.stringify(b)); };
-      if (req.headers['x-access-key'] !== KEY) return send(401, { error: 'Senha do grupo incorreta.' });
+      const access = await checkAccess(adb, req.headers['x-access-key'] || '', ENV);
+      if (!access.ok) return send(401, { error: 'Código de acesso incorreto, vencido ou revogado.' });
       let data = ''; for await (const c of req) data += c;
       try {
         const body = JSON.parse(data || '{}');
@@ -91,9 +101,10 @@ export function start(port) {
           if (latency) await new Promise((r) => setTimeout(r, latency));
           if (rejectNext) { rejectNext = false; return send(400, { error: 'Jogada recusada (teste).' }); }
         }
+        if (String(body.action).startsWith('admin_')) return send(200, await adminHandle(adb, body, access));
         return send(200, await handle(db, body));
       }
-      catch (e) { return e instanceof HttpError ? send(e.status, { error: e.message }) : send(500, { error: String(e) }); }
+      catch (e) { return e instanceof HttpError || e instanceof AuthError ? send(e.status, { error: e.message }) : send(500, { error: String(e) }); }
     }
     if (url.pathname.startsWith('/mock/presence/')) {
       const [, , , pcode, pkey] = url.pathname.split('/');

@@ -1,10 +1,14 @@
 // Edge Function "mesa": unica porta de escrita da Mesa de Jogos.
-// Exige a senha do grupo (segredo ACCESS_KEY) no cabecalho x-access-key.
+// Exige um codigo de acesso valido no cabecalho x-access-key: o do mestre (segredo MASTER_KEY), um codigo individual
+// emitido por ele (tabela access_codes) ou, se ainda existir, a senha antiga do grupo (segredo ACCESS_KEY).
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { handle, HttpError } from './core.mjs';
+import { AuthError, adminHandle, checkAccess } from './auth.mjs';
 
+// MASTER_KEY: codigo do mestre (so voce). ACCESS_KEY: senha unica antiga do grupo, opcional (apague o segredo para desativar).
 const ACCESS_KEY = Deno.env.get('ACCESS_KEY') ?? '';
+const MASTER_KEY = Deno.env.get('MASTER_KEY') ?? '';
 const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
 });
@@ -18,14 +22,6 @@ const CORS = {
 
 const reply = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
-
-function sameSecret(a: string, b: string): boolean {
-  const x = new TextEncoder().encode(a);
-  const y = new TextEncoder().encode(b);
-  let diff = x.length ^ y.length;
-  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  return diff === 0;
-}
 
 const db = {
   async getRoom(code: string) {
@@ -100,18 +96,50 @@ const db = {
   },
 };
 
+// Codigos de acesso individuais (tabela access_codes; so a funcao, com service role, enxerga).
+const adb = {
+  async findCode(hash: string) {
+    const { data, error } = await supabase.from('access_codes').select('id,label,expires_at,revoked_at').eq('code_hash', hash).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async touchCode(id: string) {
+    await supabase.from('access_codes').update({ last_used_at: new Date().toISOString() }).eq('id', id);
+  },
+  async listCodes() {
+    const { data, error } = await supabase.from('access_codes').select('id,label,created_at,expires_at,revoked_at,last_used_at').order('created_at', { ascending: false }).limit(200);
+    if (error) throw error;
+    return data;
+  },
+  async createCode(c: any) {
+    const { data, error } = await supabase.from('access_codes').insert(c).select('id').single();
+    if (error) throw error;
+    return data;
+  },
+  async revokeCode(id: string) {
+    const { error } = await supabase.from('access_codes').update({ revoked_at: new Date().toISOString() }).eq('id', id).is('revoked_at', null);
+    if (error) throw error;
+  },
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'Método não permitido.' });
-  if (!ACCESS_KEY) return reply(500, { error: 'Servidor sem senha do grupo configurada.' });
-  if (!sameSecret(req.headers.get('x-access-key') ?? '', ACCESS_KEY)) {
-    return reply(401, { error: 'Senha do grupo incorreta.' });
+  if (!MASTER_KEY && !ACCESS_KEY) return reply(500, { error: 'Servidor sem código de acesso configurado.' });
+  let access;
+  try {
+    access = await checkAccess(adb, req.headers.get('x-access-key') ?? '', { MASTER_KEY, ACCESS_KEY });
+  } catch (err) {
+    console.error(err);
+    return reply(500, { error: 'Erro ao verificar o acesso.' });
   }
+  if (!access.ok) return reply(401, { error: 'Código de acesso incorreto, vencido ou revogado.' });
   try {
     const body = await req.json().catch(() => ({}));
+    if (typeof body.action === 'string' && body.action.startsWith('admin_')) return reply(200, await adminHandle(adb, body, access));
     return reply(200, await handle(db, body));
   } catch (err) {
-    if (err instanceof HttpError) return reply(err.status, { error: err.message });
+    if (err instanceof HttpError || err instanceof AuthError) return reply(err.status, { error: err.message });
     console.error(err);
     return reply(500, { error: 'Erro interno do servidor.' });
   }
