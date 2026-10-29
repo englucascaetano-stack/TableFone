@@ -32,11 +32,21 @@ export async function hashCode(code) {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Codigo gerado: 4 caracteres (letras e numeros, sem I, O, 0 e 1 para nao confundir). Curto de proposito; ver o limite de tentativas.
 export function newCode() {
-  const buf = new Uint32Array(10);
+  const buf = new Uint32Array(4);
   crypto.getRandomValues(buf);
-  const s = Array.from(buf, (n) => ALPHABET[n % ALPHABET.length]).join('');
-  return `${s.slice(0, 5)}-${s.slice(5)}`;
+  return Array.from(buf, (n) => ALPHABET[n % ALPHABET.length]).join('');
+}
+
+// Limite de tentativas erradas por IP: MAX_FAILS em WINDOW_MS bloqueia novas tentativas (inclusive as certas) desse IP.
+export const MAX_FAILS = 15;
+export const WINDOW_MS = 10 * 60 * 1000;
+export async function isBlocked(adb, ip, now = Date.now()) {
+  return (await adb.countFails(ip, new Date(now - WINDOW_MS).toISOString())) >= MAX_FAILS;
+}
+export async function recordFail(adb, ip) {
+  await adb.addFail(ip);
 }
 
 // Retorna { ok, master, label? }. `env` = { MASTER_KEY, ACCESS_KEY }; `now` so para testes.
@@ -78,7 +88,7 @@ export async function adminHandle(adb, body, access) {
       if (body.code !== undefined && body.code !== null && String(body.code).trim() !== '') {
         code = String(body.code).trim();
         const n = normalize(code);
-        if (n.length < 6 || n.length > 32) throw new AuthError(400, 'O código deve ter de 6 a 32 caracteres (espaços e hífens não contam).');
+        if (n.length < 4 || n.length > 32) throw new AuthError(400, 'O código deve ter de 4 a 32 caracteres (espaços e hífens não contam).');
         if (isWeak(n)) throw new AuthError(400, 'Escolha outro código.');
       } else code = newCode();
       const days = body.days === null || body.days === undefined || body.days === '' ? null : Number(body.days);

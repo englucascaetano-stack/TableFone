@@ -4,7 +4,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { handle, HttpError } from './core.mjs';
-import { AuthError, adminHandle, checkAccess } from './auth.mjs';
+import { AuthError, adminHandle, checkAccess, isBlocked, recordFail } from './auth.mjs';
 
 // MASTER_KEY: codigo do mestre (so voce). ACCESS_KEY: senha unica antiga do grupo, opcional (apague o segredo para desativar).
 // .trim(): ao colar o valor no painel do Supabase e comum sobrar espaco ou quebra de linha no fim.
@@ -122,6 +122,16 @@ const adb = {
     const { error } = await supabase.from('access_codes').insert(c);
     if (error) throw error;
   },
+  // Tentativas erradas por IP (tabela access_fails): limita adivinhacao do codigo.
+  async countFails(ip: string, sinceIso: string) {
+    const { count, error } = await supabase.from('access_fails').select('id', { count: 'exact', head: true }).eq('ip', ip).gte('at', sinceIso);
+    if (error) throw error;
+    return count ?? 0;
+  },
+  async addFail(ip: string) {
+    await supabase.from('access_fails').insert({ ip });
+    if (Math.random() < 0.05) await supabase.from('access_fails').delete().lt('at', new Date(Date.now() - 86400000).toISOString());
+  },
   async revokeAll() {
     const { error } = await supabase.from('access_codes').update({ revoked_at: new Date().toISOString() }).is('revoked_at', null);
     if (error) throw error;
@@ -132,9 +142,12 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'Método não permitido.' });
   if (!MASTER_KEY && !ACCESS_KEY) return reply(500, { error: 'Servidor sem código de acesso configurado.' });
+  const ip = (req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for') ?? 'desconhecido').split(',')[0].trim();
   let access;
   try {
+    if (await isBlocked(adb, ip)) return reply(429, { error: 'Muitas tentativas com código incorreto. Aguarde 10 minutos e tente de novo.' });
     access = await checkAccess(adb, readKey(req.headers.get('x-access-key')), { MASTER_KEY, ACCESS_KEY });
+    if (!access.ok) await recordFail(adb, ip);
   } catch (err) {
     console.error(err);
     return reply(500, { error: 'Erro ao verificar o acesso.' });

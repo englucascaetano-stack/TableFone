@@ -63,7 +63,7 @@ Arquitetura:
 
 Publicar:
 
-1. **Acesso**: o segredo `MASTER_KEY` (Supabase > Edge Functions > Secrets) é o código do mestre e só você deve saber. Digitando-o no campo "Código de acesso" da tela inicial aparece o "Painel do mestre", onde você gera ou define o **código único do grupo** (validade opcional), copia, troca (o anterior deixa de valer) ou desativa. O código do grupo fica na tabela `access_codes` (hash para conferir e o texto para você rever; só a função acessa a tabela). O segredo antigo `ACCESS_KEY` (senha única antiga) ainda vale se existir; apague-o para que só o código do grupo e o seu funcionem.
+1. **Acesso**: o segredo `MASTER_KEY` (Supabase > Edge Functions > Secrets) é o código do mestre e só você deve saber. Digitando-o no campo "Código de acesso" da tela inicial aparece o "Painel do mestre", onde você gera (4 letras e números) ou define o **código único do grupo** (validade opcional; tentativas erradas são limitadas por IP: 15 em 10 minutos), copia, troca (o anterior deixa de valer) ou desativa. O código do grupo fica na tabela `access_codes` (hash para conferir e o texto para você rever; só a função acessa a tabela). O segredo antigo `ACCESS_KEY` (senha única antiga) ainda vale se existir; apague-o para que só o código do grupo e o seu funcionem.
 2. Alterou regras em `games/<id>/game.js`? Rode `node scripts/build-edge.js` e publique a função de novo
    (a cópia em `supabase/functions/mesa/games/` é gerada e não deve ser editada à mão).
 3. Publicação: o workflow `.github/workflows/pages.yml` envia `public/` ao GitHub Pages a cada push na `main`. Em Settings > Pages, fonte = GitHub Actions.
