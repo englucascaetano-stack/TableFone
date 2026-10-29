@@ -7,8 +7,15 @@ import { handle, HttpError } from './core.mjs';
 import { AuthError, adminHandle, checkAccess } from './auth.mjs';
 
 // MASTER_KEY: codigo do mestre (so voce). ACCESS_KEY: senha unica antiga do grupo, opcional (apague o segredo para desativar).
-const ACCESS_KEY = Deno.env.get('ACCESS_KEY') ?? '';
-const MASTER_KEY = Deno.env.get('MASTER_KEY') ?? '';
+// .trim(): ao colar o valor no painel do Supabase e comum sobrar espaco ou quebra de linha no fim.
+const ACCESS_KEY = (Deno.env.get('ACCESS_KEY') ?? '').trim();
+const MASTER_KEY = (Deno.env.get('MASTER_KEY') ?? '').trim();
+
+// O navegador manda o codigo com encodeURIComponent (cabecalho HTTP so aceita ASCII; acentos quebrariam o envio).
+const readKey = (raw: string | null) => {
+  const v = raw ?? '';
+  try { return decodeURIComponent(v); } catch { return v; }
+};
 const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
 });
@@ -127,12 +134,12 @@ Deno.serve(async (req: Request) => {
   if (!MASTER_KEY && !ACCESS_KEY) return reply(500, { error: 'Servidor sem código de acesso configurado.' });
   let access;
   try {
-    access = await checkAccess(adb, req.headers.get('x-access-key') ?? '', { MASTER_KEY, ACCESS_KEY });
+    access = await checkAccess(adb, readKey(req.headers.get('x-access-key')), { MASTER_KEY, ACCESS_KEY });
   } catch (err) {
     console.error(err);
     return reply(500, { error: 'Erro ao verificar o acesso.' });
   }
-  if (!access.ok) return reply(401, { error: 'Código de acesso incorreto, vencido ou revogado.' });
+  if (!access.ok) return reply(401, { error: `Código de acesso incorreto, vencido ou revogado.${MASTER_KEY ? '' : ' (O segredo MASTER_KEY ainda não está definido no servidor.)'}` });
   try {
     const body = await req.json().catch(() => ({}));
     if (typeof body.action === 'string' && body.action.startsWith('admin_')) return reply(200, await adminHandle(adb, body, access));

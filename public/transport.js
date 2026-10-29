@@ -32,7 +32,7 @@ window.createTransport = function createTransport({ pid, getKey }) {
           headers: {
             'Content-Type': 'application/json',
             apikey: cfg.supabaseKey,
-            'x-access-key': getKey(),
+            'x-access-key': encodeURIComponent(getKey()),
             // Executa a funcao na mesma regiao do banco: evita varias idas e voltas entre continentes.
             ...(cfg.supabaseRegion ? { 'x-region': cfg.supabaseRegion } : {}),
           },

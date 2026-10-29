@@ -92,7 +92,7 @@ export function start(port) {
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
     if (url.pathname === '/functions/v1/mesa') {
       const send = (s, b) => { res.writeHead(s, { ...cors, 'Content-Type': 'application/json' }); res.end(JSON.stringify(b)); };
-      const access = await checkAccess(adb, req.headers['x-access-key'] || '', ENV);
+      const access = await checkAccess(adb, (() => { const v = req.headers['x-access-key'] || ''; try { return decodeURIComponent(v); } catch { return v; } })(), ENV);
       if (!access.ok) return send(401, { error: 'Código de acesso incorreto, vencido ou revogado.' });
       let data = ''; for await (const c of req) data += c;
       try {
