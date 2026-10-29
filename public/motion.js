@@ -21,6 +21,13 @@
     return out;
   }
 
+  // Em SVG, translate(px) e medido em unidades do viewBox; converte os pixels da tela.
+  function unit(n) {
+    const s = n.ownerSVGElement;
+    const m = s && s.getScreenCTM && s.getScreenCTM();
+    return m && m.a ? 1 / m.a : 1;
+  }
+
   function snapshot(root) {
     const rects = new Map();
     for (const [k, n] of indexed(root)) rects.set(k, n.getBoundingClientRect());
@@ -37,8 +44,9 @@
       const now = n.getBoundingClientRect();
       const old = snap.rects.get(k);
       if (old) {
-        const dx = old.left - now.left;
-        const dy = old.top - now.top;
+        const k = unit(n);
+        const dx = (old.left - now.left) * k;
+        const dy = (old.top - now.top) * k;
         if (Math.abs(dx) + Math.abs(dy) < 4) continue;
         n.style.zIndex = '6';
         const a = n.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: MOVE_MS, easing: 'cubic-bezier(.2,.7,.2,1)' });
@@ -46,6 +54,12 @@
       } else if (fresh <= MAX_ENTER) {
         // carta nova: sai do monte, se houver um na tela; senao surge com um pequeno "pop"
         const delay = Math.min(entering++, 8) * 45;
+        if (n.ownerSVGElement) { // peca de SVG: "pop" a partir do proprio centro
+          n.style.transformBox = 'fill-box';
+          n.style.transformOrigin = 'center';
+          n.animate([{ transform: 'scale(0.2)', opacity: 0 }, { transform: 'scale(1.2)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: ENTER_MS + 140, delay, easing: 'ease-out', fill: 'backwards' });
+          continue;
+        }
         let from = { transform: 'scale(0.8)', opacity: 0 };
         if (snap.pile) {
           const dx = snap.pile.left + snap.pile.width / 2 - (now.left + now.width / 2);

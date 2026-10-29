@@ -14,8 +14,9 @@
   const colAt = (row, color) => (color + row) % 5;
   const colorAt = (row, col) => (col - row + 5) % 5;
 
-  function tile(color, extra) {
+  function tile(color, extra, mk) {
     const t = K.el('span', `az-t c${color}${extra ? ` ${extra}` : ''}`, GLYPH[color]);
+    if (mk) t.dataset.mk = mk;
     t.setAttribute('aria-label', NAMES[color]);
     return t;
   }
@@ -46,7 +47,7 @@
       row.disabled = !ok;
       for (let i = 0; i < r + 1; i++) {
         const filled = i >= r + 1 - line.n;
-        row.append(filled ? tile(line.color) : K.el('span', 'az-slot'));
+        row.append(filled ? tile(line.color, '', `az${seat}p${r}.${i}.${line.color}`) : K.el('span', 'az-slot'));
       }
       if (ok) row.addEventListener('click', () => onPlace(r));
       left.append(row);
@@ -55,7 +56,7 @@
     for (let r = 0; r < 5; r++) {
       for (let c = 0; c < 5; c++) {
         const color = colorAt(r, c);
-        wall.append(b.wall[r][c] ? tile(color) : K.el('span', `az-ghost c${color}`));
+        wall.append(b.wall[r][c] ? tile(color, '', `az${seat}w${r}${c}`) : K.el('span', `az-ghost c${color}`));
       }
     }
     grid.append(left, wall);
@@ -67,7 +68,7 @@
     for (let i = 0; i < 7; i++) {
       const cell = K.el('span', 'az-fc');
       const t = b.floor[i];
-      if (t !== undefined) cell.append(t === 'M' ? K.el('span', 'az-t mk', '1') : tile(t));
+      if (t !== undefined) cell.append(t === 'M' ? K.el('span', 'az-t mk', '1') : tile(t, '', `az${seat}f${i}.${t}`));
       cell.append(K.el('small', null, String(PEN[i])));
       floor.append(cell);
     }

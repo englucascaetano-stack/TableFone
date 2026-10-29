@@ -31,6 +31,7 @@
     pip.className = 'pip';
     pip.textContent = s;
     el.append(corner, pip);
+    el.dataset.mk = c;
     el.setAttribute('aria-label', `${LABEL[r] || r} de ${{ S: 'espadas', H: 'copas', D: 'ouros', C: 'paus' }[c.slice(-1)]}`);
     return el;
   }
@@ -77,7 +78,9 @@
       selected = null;
       pending = { version: room.version, view: applyLocal(room.view, from, to) };
       const mine = pending;
-      render(el, room, send);
+      // a jogada aparece na hora; anima o movimento da carta ate o destino
+      if (window.Motion) Motion.run(el, room.code, `${room.version}p`, () => render(el, room, send));
+      else render(el, room, send);
       // Se o servidor recusar (ou nao responder), volta ao estado oficial.
       Promise.resolve(send({ t: 'move', from, to })).finally(() => {
         if (pending === mine) {
@@ -118,6 +121,7 @@
 
     const stock = v.stockCount > 0 ? Object.assign(document.createElement('div'), { className: 'card down' }) : slotEl(v.waste.length ? '↻' : '');
     stock.classList.add('stock');
+    stock.dataset.pile = '1';
     if (canPlay) stock.addEventListener('click', () => { selected = null; send({ t: 'draw' }); });
     if (v.stockCount > 0) stock.dataset.count = v.stockCount;
     top.appendChild(stock);

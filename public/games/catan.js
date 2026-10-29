@@ -33,6 +33,7 @@
   let panel = null; // 'trade' | 'bank' | 'year' | 'monopoly'
   let sel = { discard: {}, give: {}, get: {}, bankGive: null, yearA: null, yearB: null };
   let seenVersion = null;
+  let lastDice; // ultimo resultado de dados exibido (undefined = ainda nao exibiu)
 
   const sum = (o) => RES.reduce((a, r) => a + ((o && o[r]) || 0), 0);
   const empty = () => ({ brick: 0, lumber: 0, wool: 0, grain: 0, ore: 0 });
@@ -96,9 +97,11 @@
         for (let d = 0; d < dots; d++) root.append(svg('circle', { cx: cx + (d - (dots - 1) / 2) * 0.07, cy: cy + 0.25, r: 0.025, fill: hot ? '#b3261e' : '#1c1a17' }));
       }
       if (v.robber === i) {
-        root.append(svg('ellipse', { cx, cy: cy + 0.45, rx: 0.2, ry: 0.07, fill: 'rgba(0,0,0,0.35)' }));
-        root.append(svg('rect', { x: cx - 0.12, y: cy + 0.05, width: 0.24, height: 0.42, rx: 0.1, fill: '#1c1a17', stroke: '#f4ead2', 'stroke-width': 0.03 }));
-        root.append(svg('circle', { cx, cy: cy + 0.02, r: 0.12, fill: '#1c1a17', stroke: '#f4ead2', 'stroke-width': 0.03 }));
+        const rg = svg('g', { 'data-mk': 'ct-robber' });
+        rg.append(svg('ellipse', { cx, cy: cy + 0.45, rx: 0.2, ry: 0.07, fill: 'rgba(0,0,0,0.35)' }));
+        rg.append(svg('rect', { x: cx - 0.12, y: cy + 0.05, width: 0.24, height: 0.42, rx: 0.1, fill: '#1c1a17', stroke: '#f4ead2', 'stroke-width': 0.03 }));
+        rg.append(svg('circle', { cx, cy: cy + 0.02, r: 0.12, fill: '#1c1a17', stroke: '#f4ead2', 'stroke-width': 0.03 }));
+        root.append(rg);
       }
       if (clickable) {
         const hit = svg('polygon', { points: verts.map((p) => p.join(',')).join(' '), fill: 'rgba(255,255,255,0.28)', stroke: '#fff', 'stroke-width': 0.08, class: 'ct-hit', tabindex: 0, role: 'button', 'aria-label': `Mover o ladrão para ${t.name}` });
@@ -113,8 +116,10 @@
       const [a, b] = T.edges[e];
       const [ax, ay] = px(T.verts[a]);
       const [bx, by] = px(T.verts[b]);
-      root.append(svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: '#1c1a17', 'stroke-width': 0.2, 'stroke-linecap': 'round' }));
-      root.append(svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: PLAYER_COLOR[owner], 'stroke-width': 0.12, 'stroke-linecap': 'round' }));
+      const rd = svg('g', { 'data-mk': `ct-road-${e}` });
+      rd.append(svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: '#1c1a17', 'stroke-width': 0.2, 'stroke-linecap': 'round' }));
+      rd.append(svg('line', { x1: ax, y1: ay, x2: bx, y2: by, stroke: PLAYER_COLOR[owner], 'stroke-width': 0.12, 'stroke-linecap': 'round' }));
+      root.append(rd);
     });
 
     // construcoes
@@ -123,9 +128,9 @@
       const [x, y] = px(T.verts[vi]);
       const col = PLAYER_COLOR[b.seat];
       if (b.city) {
-        root.append(svg('path', { d: `M${x - 0.26} ${y + 0.2} V${y - 0.05} H${x - 0.02} V${y - 0.25} L${x + 0.12} ${y - 0.38} L${x + 0.26} ${y - 0.25} V${y + 0.2} Z`, fill: col, stroke: '#1c1a17', 'stroke-width': 0.05, 'stroke-linejoin': 'round' }));
+        root.append(svg('path', { 'data-mk': `ct-city-${vi}`, d: `M${x - 0.26} ${y + 0.2} V${y - 0.05} H${x - 0.02} V${y - 0.25} L${x + 0.12} ${y - 0.38} L${x + 0.26} ${y - 0.25} V${y + 0.2} Z`, fill: col, stroke: '#1c1a17', 'stroke-width': 0.05, 'stroke-linejoin': 'round' }));
       } else {
-        root.append(svg('path', { d: `M${x - 0.18} ${y + 0.16} V${y - 0.06} L${x} ${y - 0.24} L${x + 0.18} ${y - 0.06} V${y + 0.16} Z`, fill: col, stroke: '#1c1a17', 'stroke-width': 0.05, 'stroke-linejoin': 'round' }));
+        root.append(svg('path', { 'data-mk': `ct-town-${vi}`, d: `M${x - 0.18} ${y + 0.16} V${y - 0.06} L${x} ${y - 0.24} L${x + 0.18} ${y - 0.06} V${y + 0.16} Z`, fill: col, stroke: '#1c1a17', 'stroke-width': 0.05, 'stroke-linejoin': 'round' }));
       }
     });
 
@@ -198,8 +203,12 @@
 
   function diceEl(d) {
     const box = K.el('div', 'ct-dice');
-    if (!d) return box;
+    if (!d) { lastDice = ''; return box; }
     box.append(K.el('span', 'ct-die', String(d[0])), K.el('span', 'ct-die', String(d[1])), K.el('b', null, `= ${d[0] + d[1]}`));
+    // rola so quando o resultado muda (nao a cada redesenho)
+    const sig = `${d[0]}-${d[1]}`;
+    if (lastDice !== undefined && lastDice !== sig && !matchMedia('(prefers-reduced-motion: reduce)').matches) box.classList.add('roll');
+    lastDice = sig;
     return box;
   }
 

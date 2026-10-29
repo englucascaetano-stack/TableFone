@@ -15,11 +15,13 @@
   let exchangeMode = false;
   let marked = new Set(); // indices marcados para troca
   let seenVersion = null;
+  let localTick = 0;
 
   const up = (s) => String(s).toUpperCase();
 
-  function tileEl(ch, value, cls) {
+  function tileEl(ch, value, cls, mk) {
     const t = K.el('span', `sc-t${cls ? ` ${cls}` : ''}`);
+    if (mk) t.dataset.mk = mk;
     t.append(K.el('b', null, ch === '?' ? '' : up(ch)));
     if (value !== undefined && value !== null && ch !== '?') t.append(K.el('small', null, String(value)));
     return t;
@@ -36,11 +38,11 @@
         const b = K.el('button', `sc-c${prem ? ` p-${prem}` : ''}${r === 7 && c === 7 ? ' center' : ''}${cell ? ' has' : ''}${lastCells.has(r * 15 + c) ? ' last' : ''}`);
         b.type = 'button';
         if (cell) {
-          b.append(tileEl(cell.l, cell.blank ? 0 : v.values[cell.l], cell.blank ? 'blank' : ''));
+          b.append(tileEl(cell.l, cell.blank ? 0 : v.values[cell.l], cell.blank ? 'blank' : '', `scb${r}-${c}`));
           b.disabled = true;
         } else if (mine) {
           const letter = mine.ch === '?' ? mine.as : mine.ch;
-          b.append(tileEl(letter, mine.ch === '?' ? 0 : v.values[letter], `new${mine.ch === '?' ? ' blank' : ''}`));
+          b.append(tileEl(letter, mine.ch === '?' ? 0 : v.values[letter], `new${mine.ch === '?' ? ' blank' : ''}`, `sc${mine.from}`));
           b.disabled = !canPlace;
           b.addEventListener('click', () => onTake(r, c));
         } else {
@@ -90,7 +92,8 @@
     const myTurn = inGame && v.turn === seat && !v.over;
     const nameOf = (s) => (room.players.find((p) => p.seat === s) || { name: `Jogador ${s + 1}` }).name;
     const wrap = K.el('div', 'mesa sc-wrap');
-    const redraw = () => render(el, room, send);
+    // cada acao local (pegar/devolver peca) anima o deslocamento entre cavalete e tabuleiro
+    const redraw = () => (window.Motion ? Motion.run(el, room.code, `l${++localTick}`, () => render(el, room, send)) : render(el, room, send));
     const usedFrom = new Set(placed.map((p) => p.from));
 
     /* placar */
@@ -159,7 +162,7 @@
         const ch = rack[idx];
         const b = K.el('button', `sc-rt${sel === pos && !exchangeMode ? ' sel' : ''}${marked.has(idx) ? ' mark' : ''}`);
         b.type = 'button';
-        b.append(tileEl(ch, v.values[ch]));
+        b.append(tileEl(ch, v.values[ch], '', `sc${idx}`));
         b.disabled = !myTurn || Boolean(askBlank);
         b.addEventListener('click', () => {
           if (exchangeMode) { if (marked.has(idx)) marked.delete(idx); else marked.add(idx); } else sel = sel === pos ? null : pos;

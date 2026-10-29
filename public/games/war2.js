@@ -40,6 +40,16 @@
   };
   const isCE = (i) => CE.includes(i);
 
+  let prevSig = null; // { code, sig } do ultimo estado desenhado, para destacar territorios que mudaram
+  const reducedMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function changedNodes(room, v, owner) {
+    const sig = v.armies.map((a, i) => `${owner(i)}:${a}`);
+    const out = new Set();
+    if (prevSig && prevSig.code === room.code && !reducedMotion()) sig.forEach((x, i) => { if (prevSig.sig[i] !== x) out.add(i); });
+    prevSig = { code: room.code, sig };
+    return out;
+  }
+
   function render(el, room, send) {
     const v = room.view;
     const mine = room.mine;
@@ -193,13 +203,14 @@
           } else s.append(svg('line', { x1, y1, x2, y2, class: 'wr-link' }));
         }
       }
+      const changed = changedNodes(room, v, owner);
       for (let i = 0; i < NAMES.length; i++) {
         const [x, y] = XY[i];
         const o = owner(i);
         const g = svg('g', { class: `wr-node ${state(i)}`, transform: `translate(${x} ${y})` });
-        g.append(svg('circle', { r: 18, fill: o >= 0 ? FILL[o] : '#555', class: 'wr-c' }));
+        g.append(svg('circle', { r: 18, fill: o >= 0 ? FILL[o] : '#555', class: `wr-c${changed.has(i) ? ' bump' : ''}` }));
         if (isCE(i)) g.append(svg('path', { d: 'M0 -33 L7 -23 L-7 -23 Z', class: 'wr-ce' }));
-        g.append(svg('text', { y: 6, class: 'wr-n', fill: o >= 0 ? TEXT[o] : '#ddd' }, o >= 0 ? String(shown(i)) : '–'));
+        g.append(svg('text', { y: 6, class: `wr-n${changed.has(i) ? ' bump' : ''}`, fill: o >= 0 ? TEXT[o] : '#ddd' }, o >= 0 ? String(shown(i)) : '–'));
         if (pending.get(i)) g.append(svg('text', { x: 17, y: -13, class: 'wr-plus' }, `+${pending.get(i)}`));
         g.append(svg('text', { y: 33, class: 'wr-name' }, NAMES[i]));
         g.addEventListener('click', () => tap(i));

@@ -499,6 +499,9 @@ table.sum th:first-child, table.sum td:first-child { text-align: left; color: va
 .wr-svg { display: block; width: 880px; height: auto; }
 .wr-link { stroke: rgba(255, 255, 255, 0.28); stroke-width: 2; }
 .wr-node { cursor: pointer; }
+.wr-c.bump, .wr-n.bump { transform-box: fill-box; transform-origin: center; animation: wr-bump .55s ease-out; }
+@keyframes wr-bump { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .wr-c.bump, .wr-n.bump { animation: none; } }
 .wr-c { stroke: rgba(255, 255, 255, 0.85); stroke-width: 2; }
 .wr-n { text-anchor: middle; font-size: 20px; font-weight: 800; pointer-events: none; }
 .wr-name { text-anchor: middle; font-size: 13px; fill: #dfe7ef; pointer-events: none; paint-order: stroke; stroke: #14212e; stroke-width: 3px; }
@@ -694,6 +697,10 @@ body.is-tablet { overflow: hidden; }
 @keyframes ctpulse { 50% { opacity: 0.55; } }
 .ct-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 8px 0; font-size: 0.8rem; color: var(--muted); }
 .ct-dice { display: inline-flex; gap: 6px; align-items: center; }
+.ct-dice.roll .ct-die { animation: ct-roll .5s cubic-bezier(.3,.7,.3,1); }
+.ct-dice.roll .ct-die:nth-child(2) { animation-delay: .06s; }
+@keyframes ct-roll { 0% { transform: rotate(-200deg) scale(.5); opacity: .2; } 60% { transform: rotate(18deg) scale(1.15); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ct-dice.roll .ct-die { animation: none; } }
 .ct-die { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border-radius: 6px; background: #f4ead2; color: #1c1a17; font-weight: 700; }
 .ct-players { display: grid; gap: 6px; margin: 8px 0; }
 .ct-pl { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }

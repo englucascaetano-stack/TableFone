@@ -35,6 +35,16 @@
     return e;
   };
 
+  let prevSig = null; // { code, sig } do ultimo estado desenhado, para destacar territorios que mudaram
+  const reducedMotion = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function changedNodes(room, v, owner) {
+    const sig = v.armies.map((a, i) => `${owner(i)}:${a}`);
+    const out = new Set();
+    if (prevSig && prevSig.code === room.code && !reducedMotion()) sig.forEach((x, i) => { if (prevSig.sig[i] !== x) out.add(i); });
+    prevSig = { code: room.code, sig };
+    return out;
+  }
+
   function render(el, room, send) {
     const v = room.view;
     const mine = room.mine;
@@ -159,6 +169,7 @@
           } else s.append(svg('line', { x1, y1, x2, y2, class: 'wr-link' }));
         }
       }
+      const changed = changedNodes(room, v, owner);
       for (let i = 0; i < NAMES.length; i++) {
         const [x, y] = XY[i];
         const o = owner(i);
@@ -168,8 +179,8 @@
         if (targets.has(i)) cls.push('tgt');
         if (pickedPlace === i) cls.push('pick');
         const g = svg('g', { class: cls.join(' '), transform: `translate(${x} ${y})` });
-        g.append(svg('circle', { r: 21, fill: FILL[o], class: 'wr-c' }));
-        g.append(svg('text', { y: 6, class: 'wr-n', fill: TEXT[o] }, String(shown(i))));
+        g.append(svg('circle', { r: 21, fill: FILL[o], class: `wr-c${changed.has(i) ? ' bump' : ''}` }));
+        g.append(svg('text', { y: 6, class: `wr-n${changed.has(i) ? ' bump' : ''}`, fill: TEXT[o] }, String(shown(i))));
         if (pending.get(i)) g.append(svg('text', { x: 18, y: -14, class: 'wr-plus' }, `+${pending.get(i)}`));
         g.append(svg('text', { y: 36, class: 'wr-name' }, NAMES[i]));
         g.addEventListener('click', () => tap(i));

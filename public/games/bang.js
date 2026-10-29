@@ -53,6 +53,7 @@
     if (opts.onClick) { b.type = 'button'; b.addEventListener('click', opts.onClick); }
     b.append(K.el('span', 'bn', NAME[c.type]), K.el('span', `bs ${c.suit === 'H' || c.suit === 'D' ? 'red' : ''}`, `${rk(c.rank)}${SUIT[c.suit]}`));
     b.title = DESC[c.type] || '';
+    if (c.id !== undefined) b.dataset.mk = `bg${c.id}`;
     return b;
   }
 
@@ -124,7 +125,9 @@
     // Modo tablet: baralho, descarte, cartas azuis dos outros e historico ficam no tablet.
     if (!room.tableMode) {
       const top = K.el('div', 'bg-top');
-      top.append(K.el('span', null, `Baralho: ${v.deck}`));
+      const deckEl = K.el('span', null, `Baralho: ${v.deck}`);
+      deckEl.dataset.pile = '1';
+      top.append(deckEl);
       const disc = K.el('span', 'bg-disc', 'Descarte: ');
       disc.append(v.top ? cardEl(v.top, { small: true }) : K.el('span', null, 'vazio'));
       top.append(disc);
