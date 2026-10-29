@@ -14,9 +14,9 @@ export const codes = [];
 const adb = {
   async findCode(hash) { return structuredClone(codes.find((r) => r.code_hash === hash) || null); },
   async touchCode(id) { const r = codes.find((x) => x.id === id); if (r) r.last_used_at = new Date().toISOString(); },
-  async listCodes() { return codes.map(({ code_hash, ...r }) => ({ ...r })); },
-  async createCode(c) { const r = { id: crypto.randomUUID(), created_at: new Date().toISOString(), revoked_at: null, last_used_at: null, ...c }; codes.push(r); return { id: r.id }; },
-  async revokeCode(id) { const r = codes.find((x) => x.id === id); if (r) r.revoked_at = new Date().toISOString(); },
+  async getGroup() { const r = codes.filter((x) => !x.revoked_at).slice(-1)[0]; return r ? structuredClone(r) : null; },
+  async createCode(c) { codes.push({ id: crypto.randomUUID(), created_at: new Date().toISOString(), revoked_at: null, last_used_at: null, ...c }); },
+  async revokeAll() { for (const r of codes) if (!r.revoked_at) r.revoked_at = new Date().toISOString(); },
 };
 export const rows = new Map();
 const presence = new Map(); // codigo da sala -> Map(chave -> ultimo batimento)

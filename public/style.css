@@ -801,6 +801,7 @@ body.is-tablet { overflow: hidden; }
 .admin-form { display: grid; gap: var(--s2); margin: var(--s2) 0; }
 .admin-new { display: grid; gap: var(--s2); justify-items: start; margin: var(--s2) 0; padding: var(--s3); border: 1px dashed var(--accent); border-radius: var(--r-ctl); }
 .admin-code { font-size: 1.6rem; letter-spacing: 0.15em; color: var(--accent); user-select: text; -webkit-user-select: text; }
+.admin-card .danger { margin-top: var(--s2); width: 100%; }
 .admin-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--s2); font-size: var(--fs-small); }
 .admin-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-ctl); }
 .admin-list button { min-height: 36px; padding: 0 var(--s3); flex: none; }

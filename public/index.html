@@ -45,18 +45,19 @@
       <div id="library" class="library"></div>
     </section>
 
+    <p id="home-notice" class="notice" role="status" hidden></p>
     <section id="admin" class="admin-card" hidden>
       <details id="admin-details">
-        <summary>Painel do mestre: liberar acessos</summary>
-        <p class="muted">Gere um código para cada pessoa. O código aparece uma única vez; você pode revogá-lo quando quiser.</p>
+        <summary>Painel do mestre: código do grupo</summary>
+        <p class="muted">Todos do grupo usam o mesmo código. Ao gerar ou definir um novo, o anterior deixa de valer.</p>
+        <div id="admin-group" class="admin-new"></div>
         <form id="admin-form" class="admin-form">
-          <input id="admin-label" type="text" maxlength="40" placeholder="Nome (ex.: Ana)" aria-label="Nome de quem vai usar o código">
+          <input id="admin-code" type="text" maxlength="40" autocomplete="off" placeholder="Definir código (vazio = gerar um)" aria-label="Novo código do grupo (deixe vazio para gerar um automaticamente)">
           <input id="admin-days" type="number" min="1" max="3650" inputmode="numeric" placeholder="Validade em dias (opcional)" aria-label="Validade em dias (opcional)">
-          <button type="submit">Gerar código</button>
+          <button type="submit">Salvar novo código</button>
         </form>
-        <div id="admin-new" class="admin-new" hidden></div>
+        <button id="admin-revoke" class="danger" type="button">Desativar o código atual (ninguém entra)</button>
         <p id="admin-error" class="error" role="alert"></p>
-        <ul id="admin-list" class="admin-list"></ul>
       </details>
     </section>
 

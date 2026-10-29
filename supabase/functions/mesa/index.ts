@@ -1,6 +1,6 @@
 // Edge Function "mesa": unica porta de escrita da Mesa de Jogos.
-// Exige um codigo de acesso valido no cabecalho x-access-key: o do mestre (segredo MASTER_KEY), um codigo individual
-// emitido por ele (tabela access_codes) ou, se ainda existir, a senha antiga do grupo (segredo ACCESS_KEY).
+// Exige um codigo de acesso valido no cabecalho x-access-key: o do mestre (segredo MASTER_KEY), o codigo do grupo
+// definido por ele (tabela access_codes) ou, se ainda existir, a senha antiga do grupo (segredo ACCESS_KEY).
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { handle, HttpError } from './core.mjs';
@@ -96,7 +96,7 @@ const db = {
   },
 };
 
-// Codigos de acesso individuais (tabela access_codes; so a funcao, com service role, enxerga).
+// Codigo de acesso do grupo (tabela access_codes; so a funcao, com service role, enxerga).
 const adb = {
   async findCode(hash: string) {
     const { data, error } = await supabase.from('access_codes').select('id,label,expires_at,revoked_at').eq('code_hash', hash).maybeSingle();
@@ -106,18 +106,17 @@ const adb = {
   async touchCode(id: string) {
     await supabase.from('access_codes').update({ last_used_at: new Date().toISOString() }).eq('id', id);
   },
-  async listCodes() {
-    const { data, error } = await supabase.from('access_codes').select('id,label,created_at,expires_at,revoked_at,last_used_at').order('created_at', { ascending: false }).limit(200);
+  async getGroup() {
+    const { data, error } = await supabase.from('access_codes').select('id,code_plain,created_at,expires_at,last_used_at').is('revoked_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (error) throw error;
     return data;
   },
   async createCode(c: any) {
-    const { data, error } = await supabase.from('access_codes').insert(c).select('id').single();
+    const { error } = await supabase.from('access_codes').insert(c);
     if (error) throw error;
-    return data;
   },
-  async revokeCode(id: string) {
-    const { error } = await supabase.from('access_codes').update({ revoked_at: new Date().toISOString() }).eq('id', id).is('revoked_at', null);
+  async revokeAll() {
+    const { error } = await supabase.from('access_codes').update({ revoked_at: new Date().toISOString() }).is('revoked_at', null);
     if (error) throw error;
   },
 };

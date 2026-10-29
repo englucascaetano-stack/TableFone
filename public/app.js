@@ -256,11 +256,12 @@ function renderRoom(room) {
 const HAND_GAMES = new Set(['uno', 'truco', 'caxeta', 'buraco', 'bang', 'coup']);
 let noticeTimer = null;
 function showNotice(text) {
-  const n = $('#notice');
-  n.textContent = text;
-  n.hidden = false;
+  for (const n of [$('#notice'), $('#home-notice')]) {
+    n.textContent = text;
+    n.hidden = false;
+  }
   clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => { n.hidden = true; }, 6000);
+  noticeTimer = setTimeout(() => { $('#notice').hidden = true; $('#home-notice').hidden = true; }, 6000);
 }
 
 /* ---------- Modo tablet (celular): ativar, ver PIN, desativar ---------- */
@@ -604,39 +605,34 @@ async function checkMaster() {
   }
 }
 
-function statusOf(c) {
-  if (c.revoked_at) return 'revogado';
-  if (c.expires_at && new Date(c.expires_at) <= new Date()) return 'vencido';
-  return 'ativo';
-}
-
 async function loadAdmin() {
   $('#admin-error').textContent = '';
+  const box = $('#admin-group');
   try {
-    const { codes } = await transport.admin('admin_list', {});
-    const ul = $('#admin-list');
-    ul.innerHTML = '';
-    for (const c of codes) {
-      const li = document.createElement('li');
-      const st = statusOf(c);
-      const txt = document.createElement('span');
-      const fmt = (d) => new Date(d).toLocaleDateString('pt-BR');
-      txt.textContent = `${c.label} · ${st}${c.expires_at && st === 'ativo' ? ` · até ${fmt(c.expires_at)}` : ''}${c.last_used_at ? ` · usado em ${fmt(c.last_used_at)}` : ' · nunca usado'}`;
-      li.appendChild(txt);
-      if (st === 'ativo') {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'danger';
-        b.textContent = 'Revogar';
-        b.addEventListener('click', async () => {
-          if (!confirm(`Revogar o código de ${c.label}? Essa pessoa perde o acesso.`)) return;
-          try { await transport.admin('admin_revoke', { id: c.id }); loadAdmin(); } catch (err) { $('#admin-error').textContent = err.message; }
-        });
-        li.appendChild(b);
-      }
-      ul.appendChild(li);
+    const { group } = await transport.admin('admin_group', {});
+    box.innerHTML = '';
+    if (!group) {
+      box.textContent = 'Nenhum código do grupo ativo. Enquanto não houver, só o seu código de mestre entra.';
+      return;
     }
-    if (!codes.length) ul.textContent = 'Nenhum código emitido ainda.';
+    const fmt = (d) => new Date(d).toLocaleDateString('pt-BR');
+    const code = document.createElement('strong');
+    code.className = 'admin-code';
+    code.textContent = group.code_plain || '(código criado antes desta versão: defina um novo)';
+    const info = document.createElement('small');
+    info.className = 'muted';
+    info.textContent = `Criado em ${fmt(group.created_at)}${group.expires_at ? ` · vale até ${fmt(group.expires_at)}` : ' · sem validade'}${group.last_used_at ? ` · último uso ${fmt(group.last_used_at)}` : ' · ainda não usado'}`;
+    box.append(document.createTextNode('Código atual do grupo:'), code, info);
+    if (group.code_plain) {
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'ghost';
+      copy.textContent = 'Copiar código';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(group.code_plain); showNotice('Código do grupo copiado.'); } catch { prompt('Copie o código:', group.code_plain); }
+      });
+      box.append(copy);
+    }
   } catch (err) {
     $('#admin-error').textContent = err.message;
   }
@@ -646,31 +642,21 @@ $('#admin-details').addEventListener('toggle', () => { if ($('#admin-details').o
 $('#admin-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('#admin-error').textContent = '';
+  if (!confirm('Salvar um novo código do grupo? O código atual deixa de valer e todos precisarão do novo.')) return;
   try {
     const days = $('#admin-days').value.trim();
-    const r = await transport.admin('admin_create', { label: $('#admin-label').value, days: days === '' ? null : Number(days) });
-    const box = $('#admin-new');
-    box.hidden = false;
-    box.innerHTML = '';
-    const info = document.createElement('div');
-    info.textContent = `Código de ${r.label}${r.expires_at ? ` (vale até ${new Date(r.expires_at).toLocaleDateString('pt-BR')})` : ''}. Anote ou envie agora: ele não será mostrado de novo.`;
-    const code = document.createElement('strong');
-    code.className = 'admin-code';
-    code.textContent = r.code;
-    const copy = document.createElement('button');
-    copy.type = 'button';
-    copy.className = 'ghost';
-    copy.textContent = 'Copiar código';
-    copy.addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(r.code); copy.textContent = 'Copiado'; } catch { prompt('Copie o código:', r.code); }
-    });
-    box.append(info, code, copy);
-    $('#admin-label').value = '';
+    await transport.admin('admin_set_group', { code: $('#admin-code').value, days: days === '' ? null : Number(days) });
+    $('#admin-code').value = '';
     $('#admin-days').value = '';
+    showNotice('Novo código do grupo salvo.');
     loadAdmin();
   } catch (err) {
     $('#admin-error').textContent = err.message;
   }
+});
+$('#admin-revoke').addEventListener('click', async () => {
+  if (!confirm('Desativar o código do grupo? Ninguém além de você conseguirá entrar até gerar outro.')) return;
+  try { await transport.admin('admin_revoke_group', {}); loadAdmin(); } catch (err) { $('#admin-error').textContent = err.message; }
 });
 
 async function start() {

@@ -1,4 +1,4 @@
--- Codigos de acesso individuais, emitidos pelo mestre (segredo MASTER_KEY da funcao "mesa").
+-- Codigo de acesso do grupo, definido pelo mestre (segredo MASTER_KEY da funcao "mesa").
 -- Guarda so o hash (SHA-256) do codigo; o codigo em si aparece uma unica vez, ao ser criado.
 create table if not exists public.access_codes (
   id uuid primary key default gen_random_uuid(),
