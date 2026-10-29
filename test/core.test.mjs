@@ -118,7 +118,7 @@ await t('jogo solo: so um assento; segundo jogador assiste e ve so a visao publi
   assert.strictEqual(jb.seat, null);
   const row = db.rows.get(code);
   for (const pile of row.state.tableau) for (const x of pile) if (!x.up) assert.ok(!JSON.stringify(row.view).includes(`"${x.c}"`), 'carta virada vazou na view publica');
-  assert.ok(!JSON.stringify(row.view).includes(row.state.stock[0]), 'monte vazou');
+  assert.ok(!JSON.stringify(row.view).includes(`"${row.state.stock[0]}"`), 'monte vazou');
   await fails(handle(db, { action: 'move', code, pid: B, move: { t: 'draw' } }), 403);
   const v0 = row.version;
   const r = await handle(db, { action: 'move', code, pid: A, move: { t: 'draw' } });
