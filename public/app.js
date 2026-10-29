@@ -136,6 +136,7 @@ function showHome() {
 }
 
 function closeRoom() {
+  if (window.Motion) Motion.reset();
   if (current && current.conn) current.conn.close();
   current = null;
   releaseWake();
@@ -225,7 +226,9 @@ function renderRoom(room) {
   }
 
   const ui = window.GameUI[room.game.id];
-  const status = ui.render($('#game-area'), room, (move) => sendMove(move));
+  const status = window.Motion
+    ? Motion.run($('#game-area'), room.code, room.version, () => ui.render($('#game-area'), room, (move) => sendMove(move)))
+    : ui.render($('#game-area'), room, (move) => sendMove(move));
 
   const waiting = room.game.maxPlayers === 2 && room.players.length < 2;
   $('#status').textContent = waiting ? `Aguardando jogadores. Código da sala: ${room.code}` : status || '';
@@ -407,7 +410,8 @@ function renderTable(room) {
   let status;
   try {
     // Jogos sem tela propria de tablet usam a tela normal em modo "assistindo", ampliada.
-    status = T ? T(area, room) : window.GameUI[room.game.id].render(area, watcher, () => {});
+    const draw = () => (T ? T(area, room) : window.GameUI[room.game.id].render(area, watcher, () => {}));
+    status = window.Motion ? Motion.run(area, `t${room.code}`, room.version, draw) : draw();
   } catch (err) {
     $('#table-error').textContent = 'Erro ao desenhar a mesa.';
     console.error(err);

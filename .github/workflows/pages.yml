@@ -23,7 +23,7 @@ jobs:
       - name: Versionar arquivos (evita estilo/codigo antigo guardado no celular)
         run: |
           V="${GITHUB_SHA::8}"
-          sed -i -E "s#(href|src)=\"(style\.css|config\.js|transport\.js|rules\.js|ui-kit\.js|app\.js|vendor/supabase\.js)\"#\1=\"\2?v=$V\"#g" public/index.html
+          sed -i -E "s#(href|src)=\"(style\.css|config\.js|transport\.js|rules\.js|ui-kit\.js|motion\.js|app\.js|vendor/supabase\.js)\"#\1=\"\2?v=$V\"#g" public/index.html
           grep -c "?v=$V" public/index.html
           echo "ASSET_VERSION=$V" >> "$GITHUB_ENV"
       - name: Gerar config.js

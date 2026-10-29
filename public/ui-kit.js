@@ -19,8 +19,10 @@ window.GameKit = (function () {
     const c = el('div', `pc${opts.selected ? ' sel' : ''}${opts.small ? ' small' : ''}${opts.dim ? ' dim' : ''}`);
     if (opts.down) {
       c.classList.add('down');
+      c.dataset.pile = '1';
       return c;
     }
+    c.dataset.mk = card;
     if (card === 'JK') {
       c.classList.add('joker');
       c.append(el('span', 'rk', '★'), el('span', 'st', 'C'));
@@ -44,6 +46,7 @@ window.GameKit = (function () {
   function unoCard(card, opts = {}) {
     const [color, value] = card.split('-');
     const c = el('div', `uno ${UNO_COLOR[color]}${opts.selected ? ' sel' : ''}${opts.dim ? ' dim' : ''}${opts.small ? ' small' : ''}`);
+    c.dataset.mk = card;
     c.append(el('span', 'uv', UNO_LABEL[value] || value));
     c.setAttribute('aria-label', `${{ R: 'vermelho', Y: 'amarelo', G: 'verde', B: 'azul', W: 'coringa' }[color]} ${UNO_LABEL[value] || value}`);
     return c;

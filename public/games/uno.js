@@ -61,6 +61,7 @@
     const row = K.el('div', 'row2');
     const pile = K.el('div', 'uno back');
     pile.title = 'Monte';
+    pile.dataset.pile = '1';
     const pileBox = K.el('div');
     pileBox.append(pile, K.el('div', 'lbl', `Monte: ${v.drawCount}`));
     const topBox = K.el('div');
