@@ -110,6 +110,7 @@ window.GameRules = {
       'Cada jogador tem 7 peças. A primeira palavra passa pela casa central (★); depois toda jogada se liga às palavras postas.',
       'Coloque as peças numa só linha ou coluna. Todas as palavras formadas, inclusive as cruzadas, precisam existir no dicionário. Acentos são ignorados; o Ç é uma peça.',
       'PD/PT dobram/triplicam a palavra; LD/LT dobram/triplicam a letra, só para peças postas na jogada. O coringa vale 0.',
+      'Se o dicionário recusar uma palavra que vocês aceitam, use "Pedir validação": os outros votam. Na sua vez, "Desafiar" questiona a jogada anterior: maioria "inválida" desfaz a jogada e o autor perde a vez; senão, o desafiante perde a vez. Empate mantém o dicionário.',
       'Usar as 7 peças de uma vez dá +50. Você pode passar ou trocar peças (com 7 ou mais no saco).',
       'Fim: o saco esvazia e alguém fica sem peças, ou 6 jogadas seguidas sem pontuar. Peças restantes descontam pontos.',
     ],

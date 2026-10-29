@@ -2,6 +2,7 @@
 // Interface do Scrabble. Toque numa peca do cavalete e depois numa casa vazia para coloca-la; toque numa peca colocada
 // por voce (ainda nao jogada) para devolve-la. A validacao das palavras e feita no servidor.
 // Intencoes: { t:'start' } | { t:'play', tiles:[{r,c,ch,as?}] } | { t:'exchange', tiles:[letras] } | { t:'pass' }
+//            | { t:'propose', tiles } (pedir validacao manual) | { t:'challenge' } | { t:'vote', ok }
 
 (function () {
   const K = window.GameKit;
@@ -34,11 +35,15 @@
       for (let c = 0; c < 15; c++) {
         const cell = v.board[r][c];
         const mine = placed.find((p) => p.r === r && p.c === c);
+        const ghost = !cell && !mine && v.vote && v.vote.tiles.find((g) => g.r === r && g.c === c);
         const prem = v.premium[r][c];
         const b = K.el('button', `sc-c${prem ? ` p-${prem}` : ''}${r === 7 && c === 7 ? ' center' : ''}${cell ? ' has' : ''}${lastCells.has(r * 15 + c) ? ' last' : ''}`);
         b.type = 'button';
         if (cell) {
           b.append(tileEl(cell.l, cell.blank ? 0 : v.values[cell.l], cell.blank ? 'blank' : '', `scb${r}-${c}`));
+          b.disabled = true;
+        } else if (ghost) {
+          b.append(tileEl(ghost.l, ghost.blank ? 0 : v.values[ghost.l], `new${ghost.blank ? ' blank' : ''}`));
           b.disabled = true;
         } else if (mine) {
           const letter = mine.ch === '?' ? mine.as : mine.ch;
@@ -70,6 +75,7 @@
           'Cada jogador tem 7 peças. A primeira palavra passa pela casa central (★); depois, toda jogada se liga às palavras já postas.',
           'Coloque as peças em uma só linha ou coluna. Todas as palavras formadas (inclusive as cruzadas) precisam existir no dicionário; o servidor confere sozinho. Acentos são ignorados; o Ç é uma peça.',
           'Casas LD/LT dobram/triplicam a letra e PD/PT dobram/triplicam a palavra, só para peças postas na jogada. O coringa vale 0 e vira a letra que você escolher.',
+          'Validação manual: se o dicionário recusar uma palavra que vocês consideram válida, use "Pedir validação"; os outros votam. Desafio: na sua vez, você pode desafiar a jogada anterior; se a maioria disser que é inválida, ela é desfeita e o autor perde a vez, senão você perde a vez. Empate mantém a decisão do dicionário.',
           'Usar as 7 peças de uma vez dá 50 pontos extras. Você pode passar ou trocar peças (com 7 ou mais no saco).',
           'A partida acaba quando o saco esvazia e alguém fica sem peças, ou após 6 jogadas seguidas sem pontuar.',
         ],
@@ -89,7 +95,8 @@
     if (!order || order.length !== rack.length) order = rack.map((_, i) => i);
     el.innerHTML = '';
     const inGame = seat !== null && seat < v.players && Boolean(mine);
-    const myTurn = inGame && v.turn === seat && !v.over;
+    const voting = Boolean(v.vote);
+    const myTurn = inGame && v.turn === seat && !v.over && !voting;
     const nameOf = (s) => (room.players.find((p) => p.seat === s) || { name: `Jogador ${s + 1}` }).name;
     const wrap = K.el('div', 'mesa sc-wrap');
     // cada acao local (pegar/devolver peca) anima o deslocamento entre cavalete e tabuleiro
@@ -125,7 +132,7 @@
     ));
     wrap.append(scroller);
 
-    if (v.log) wrap.append(K.el('div', 'logline', v.log));
+    if (v.log) wrap.append(K.el('div', 'logline', v.log.replace(/Jogador (\d)/g, (m, n) => nameOf(Number(n) - 1))));
     if (v.last && v.last.kind === 'play') {
       wrap.append(K.el('div', 'sc-last', `Última: ${nameOf(v.last.seat)} fez ${v.last.total} (${v.last.words.map((w) => `${w.word} ${w.points}`).join(' · ')})${v.last.bingo ? ' + bingo 50' : ''}`));
     }
@@ -151,6 +158,40 @@
       cancel.addEventListener('click', () => { askBlank = null; redraw(); });
       box.append(row, cancel);
       wrap.append(box);
+    }
+
+    /* votacao (validacao manual ou desafio) */
+    if (v.vote) {
+      const vt = v.vote;
+      const box = K.el('div', 'sc-box sc-vote');
+      if (vt.kind === 'accept') {
+        box.append(K.el('b', null, `${nameOf(vt.author)} pede para aceitar: ${vt.bad.join(', ')}`));
+        box.append(K.el('div', 'sc-vsub', `Palavras da jogada: ${vt.words.join(', ')}. O dicionário não reconheceu ${vt.bad.join(', ')}. As peças aparecem no tabuleiro em destaque. Confira num dicionário e vote.`));
+      } else {
+        box.append(K.el('b', null, `${nameOf(vt.seat)} desafiou a jogada de ${nameOf(vt.author)}: ${vt.words.join(', ')}`));
+        box.append(K.el('div', 'sc-vsub', 'A jogada é válida? Se a maioria disser que não, ela é desfeita (peças, saco e pontos voltam) e o autor perde a vez. Se a maioria mantiver, o desafiante perde a vez.'));
+      }
+      const tally = K.el('div', 'sc-vtally');
+      for (let i = 0; i < v.players; i++) {
+        const vv = vt.votes[i];
+        tally.append(K.el('span', `sc-vt${vv === null ? '' : vv ? ' yes' : ' no'}`, `${nameOf(i)}: ${vv === null ? 'aguardando' : vt.kind === 'accept' ? (vv ? 'aceita' : 'recusa') : (vv ? 'válida' : 'inválida')}`));
+      }
+      box.append(tally);
+      if (inGame && vt.votes[seat] === null) {
+        const row = K.el('div', 'sc-actions');
+        const yes = K.el('button', null, vt.kind === 'accept' ? 'Aceitar' : 'Válida');
+        const no = K.el('button', 'ghost', vt.kind === 'accept' ? 'Recusar' : 'Inválida');
+        for (const [b, ok] of [[yes, true], [no, false]]) { b.type = 'button'; b.addEventListener('click', () => send({ t: 'vote', ok })); row.append(b); }
+        box.append(row);
+      } else if (inGame) box.append(K.el('small', 'muted', 'Seu voto foi registrado. Aguardando os demais.'));
+      wrap.append(box);
+    } else if (inGame && v.turn === seat && v.challengeable && !v.over) {
+      const row = K.el('div', 'sc-actions');
+      const b = K.el('button', 'ghost', `Desafiar jogada de ${nameOf(v.last.seat)}`);
+      b.type = 'button';
+      b.addEventListener('click', () => send({ t: 'challenge' }));
+      row.append(b);
+      wrap.append(row);
     }
 
     /* cavalete e acoes */
@@ -182,6 +223,7 @@
         };
         if (!exchangeMode) {
           btn('Jogar', () => send({ t: 'play', tiles: placed.map((p) => ({ r: p.r, c: p.c, ch: p.ch, as: p.as })) }), { disabled: !placed.length });
+          btn('Pedir validação', () => send({ t: 'propose', tiles: placed.map((p) => ({ r: p.r, c: p.c, ch: p.ch, as: p.as })) }), { cls: 'ghost', disabled: !placed.length });
           btn('Recolher', () => { placed = []; sel = null; redraw(); }, { cls: 'ghost', disabled: !placed.length });
           btn('Embaralhar', () => { order = order.slice().sort(() => Math.random() - 0.5); sel = null; redraw(); }, { cls: 'ghost' });
           btn('Trocar peças', () => { exchangeMode = true; placed = []; sel = null; redraw(); }, { cls: 'ghost', disabled: !mine.canExchange });
@@ -209,6 +251,7 @@
       const names = v.winners.map(nameOf).join(' e ');
       return v.winners.length > 1 ? `Empate: ${names}. "Nova partida" joga outra.` : `${names} venceu! "Nova partida" joga outra.`;
     }
+    if (voting) return v.vote.kind === 'accept' ? `Votação: aceitar ${v.vote.bad.join(', ')}?` : `Desafio à jogada de ${nameOf(v.vote.author)}: ela é válida?`;
     if (!inGame) return `Você está assistindo. Vez de ${nameOf(v.turn)}.`;
     if (!myTurn) return `Vez de ${nameOf(v.turn)}.`;
     if (exchangeMode) return 'Toque nas peças que quer trocar e confirme.';

@@ -169,4 +169,103 @@ t('palavras cruzadas: peca ao lado de letra ja posta forma palavra extra e a men
   assert.ok(/EV/.test(e) && /VIR/.test(e), e);
 });
 
+// cenario: "EV" nao esta no dicionario, mas o grupo pode aceitar
+const evBoard = () => {
+  const s = started(3);
+  put(s, 'cem', 5, 7, 'v');
+  put(s, 'mijo', 7, 7, 'h');
+  s.turn = 0;
+  give(s, 0, ['v', 'r', 'a', 'a', 'a', 'a', 'a']);
+  return s;
+};
+const evTiles = [{ r: 6, c: 8, ch: 'v' }, { r: 8, c: 8, ch: 'r' }];
+
+t('validacao manual: pedido, votos e aceitacao por maioria', () => {
+  let s = evBoard();
+  // palavra que o dicionario ja aceita nao precisa de votacao
+  const k = started(2);
+  put(k, 'casa', 7, 5);
+  k.turn = 0;
+  give(k, 0, ['s', 'a', 'a', 'a', 'a', 'a', 'a']);
+  assert.ok(/use Jogar/.test(fail(k, 0, { t: 'propose', tiles: [{ r: 7, c: 9, ch: 's' }] })));
+  s = play(s, 0, { t: 'propose', tiles: evTiles });
+  assert.ok(s.vote && s.vote.kind === 'accept' && s.vote.bad.includes('EV'));
+  assert.deepStrictEqual(g.waitingOn(s), [1, 2]);
+  assert.ok(/votação/.test(fail(s, 0, { t: 'pass' })));
+  assert.strictEqual(s.board[6][8], null, 'a jogada so entra depois da votacao');
+  s = play(s, 1, { t: 'vote', ok: true });
+  fail(s, 1, { t: 'vote', ok: true }); // voto duplicado
+  s = play(s, 2, { t: 'vote', ok: false });
+  // 2 de 3 a favor (proponente + Jogador 2): aceita
+  assert.strictEqual(s.vote, null);
+  assert.strictEqual(s.board[6][8].l, 'v');
+  assert.ok(s.last.manual && s.scores[0] > 0 && s.turn === 1);
+  assert.ok(/aceita pelo grupo/.test(s.log));
+  assert.ok(/já foi aceita/.test(fail(s, 1, { t: 'challenge' })), 'jogada aceita pelo grupo nao pode ser desafiada');
+});
+
+t('validacao manual: recusa por maioria devolve a vez ao proponente; empate recusa', () => {
+  let s = play(evBoard(), 0, { t: 'propose', tiles: evTiles });
+  s = play(s, 1, { t: 'vote', ok: false });
+  s = play(s, 2, { t: 'vote', ok: false });
+  assert.strictEqual(s.vote, null);
+  assert.strictEqual(s.turn, 0);
+  assert.strictEqual(s.board[6][8], null);
+  assert.deepStrictEqual(s.racks[0].slice(0, 2), ['v', 'r']);
+  // 2 jogadores: empate (1 a 1) mantem a decisao do dicionario
+  let d = started(2);
+  put(d, 'cem', 5, 7, 'v'); put(d, 'mijo', 7, 7, 'h'); d.turn = 0; give(d, 0, ['v', 'r', 'a', 'a', 'a', 'a', 'a']);
+  d = play(d, 0, { t: 'propose', tiles: evTiles });
+  d = play(d, 1, { t: 'vote', ok: false });
+  assert.strictEqual(d.board[6][8], null);
+});
+
+t('desafio: aceito desfaz a jogada (pecas, saco e pontos) e o autor perde a vez', () => {
+  let s = started(3);
+  s.turn = 0;
+  give(s, 0, ['c', 'a', 's', 'a', 'x', 'x', 'x']);
+  const bagBefore = s.bag.slice();
+  s = play(s, 0, { t: 'play', tiles: tilesOf('casa', 7, 5) });
+  assert.strictEqual(s.turn, 1);
+  assert.ok(g.view(s).challengeable);
+  fail(s, 0, { t: 'challenge' }); // quem acabou de jogar nao e o da vez
+  s = play(s, 1, { t: 'challenge' });
+  assert.strictEqual(s.vote.kind, 'challenge');
+  s = play(s, 0, { t: 'vote', ok: true }); // autor defende
+  s = play(s, 2, { t: 'vote', ok: false }); // desafiante + Jogador 3 = maioria
+  assert.strictEqual(s.vote, null);
+  assert.strictEqual(s.board[7][5], null);
+  assert.strictEqual(s.scores[0], 0);
+  assert.deepStrictEqual(s.racks[0], ['c', 'a', 's', 'a', 'x', 'x', 'x']);
+  assert.deepStrictEqual(s.bag, bagBefore);
+  assert.strictEqual(s.turn, 1, 'a vez segue para o desafiante (o autor perdeu a dele)');
+});
+
+t('desafio: recusado faz o desafiante perder a vez; so cabe antes da proxima jogada', () => {
+  let s = started(3);
+  s.turn = 0;
+  give(s, 0, ['c', 'a', 's', 'a', 'x', 'x', 'x']);
+  s = play(s, 0, { t: 'play', tiles: tilesOf('casa', 7, 5) });
+  s = play(s, 1, { t: 'challenge' });
+  s = play(s, 0, { t: 'vote', ok: true });
+  s = play(s, 2, { t: 'vote', ok: true }); // 2 validos contra 1: mantem
+  assert.strictEqual(s.vote, null);
+  assert.strictEqual(s.board[7][5].l, 'c');
+  assert.strictEqual(s.turn, 2, 'o desafiante perdeu a vez');
+  assert.ok(!g.view(s).challengeable);
+  // 2 jogadores: empate mantem a jogada
+  let d = started(2); d.turn = 0; give(d, 0, ['c', 'a', 's', 'a', 'x', 'x', 'x']);
+  d = play(d, 0, { t: 'play', tiles: tilesOf('casa', 7, 5) });
+  d = play(d, 1, { t: 'challenge' });
+  d = play(d, 0, { t: 'vote', ok: true });
+  assert.strictEqual(d.board[7][5].l, 'c');
+});
+
+t('votacao: piloto automatico mantem a decisao do dicionario', () => {
+  const s = play(evBoard(), 0, { t: 'propose', tiles: evTiles });
+  assert.deepStrictEqual(g.autoMove(s, 1), { t: 'vote', ok: false });
+  const c = (() => { let x = started(2); x.turn = 0; give(x, 0, ['c', 'a', 's', 'a', 'x', 'x', 'x']); x = play(x, 0, { t: 'play', tiles: tilesOf('casa', 7, 5) }); return play(x, 1, { t: 'challenge' }); })();
+  assert.deepStrictEqual(g.autoMove(c, 0), { t: 'vote', ok: true });
+});
+
 console.log(`\n${n} testes passaram.`);

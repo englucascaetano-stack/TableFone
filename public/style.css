@@ -814,3 +814,9 @@ body.is-tablet { overflow: hidden; }
 .admin-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--s2); font-size: var(--fs-small); }
 .admin-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-ctl); }
 .admin-list button { min-height: 36px; padding: 0 var(--s3); flex: none; }
+
+.sc-vote .sc-vsub { margin: 4px 0 8px; font-size: var(--fs-small); color: var(--muted); }
+.sc-vtally { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.sc-vt { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: var(--fs-small); }
+.sc-vt.yes { border-color: #5fae6a; }
+.sc-vt.no { border-color: #d0675a; }

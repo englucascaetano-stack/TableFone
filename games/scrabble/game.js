@@ -134,6 +134,8 @@ function deal(prev, first) {
     last: null,
     winners: [],
     endBonus: null,
+    undo: null,
+    vote: null,
     log: 'Nova partida. A primeira palavra deve passar pela casa central.',
   };
   for (let i = 0; i < prev.players; i++) fillRack(s, i);
@@ -182,7 +184,7 @@ function scoreWord(b, cells, fresh) {
 
 // tiles: [{ r, c, ch, as? }] com ch = letra do cavalete ('?' = coringa, `as` = letra escolhida).
 // Retorna { error } ou { words: [{word, points}], total, cells }.
-function evaluate(state, tiles) {
+function evaluate(state, tiles, lenient) {
   if (!Array.isArray(tiles) || !tiles.length) return { error: 'Coloque ao menos uma peça no tabuleiro.' };
   if (tiles.length > RACK) return { error: 'Peças demais.' };
   const seen = new Set();
@@ -253,12 +255,12 @@ function evaluate(state, tiles) {
   }
 
   const bad = words.filter((w) => !isWord(w.word)).map((w) => upper(w.word));
-  if (bad.length) return { error: `Palavra não encontrada no dicionário: ${bad.join(', ')}. Palavras formadas nesta jogada: ${words.map((w) => upper(w.word)).join(', ')} (peças vizinhas a letras já postas também formam palavras).` };
+  if (bad.length && !lenient) return { error: `Palavra não encontrada no dicionário: ${bad.join(', ')}. Palavras formadas nesta jogada: ${words.map((w) => upper(w.word)).join(', ')} (peças vizinhas a letras já postas também formam palavras).` };
 
   let total = words.reduce((a, w) => a + w.points, 0);
   const bingo = placed.length === RACK;
   if (bingo) total += BINGO;
-  return { words: words.map((w) => ({ word: upper(w.word), points: w.points })), total, bingo, placed };
+  return { words: words.map((w) => ({ word: upper(w.word), points: w.points })), total, bingo, placed, bad };
 }
 
 /* ---------- jogadas ---------- */
@@ -287,6 +289,74 @@ function finishGame(s, why) {
   s.log = why === 'out' ? 'Fim da partida: um jogador ficou sem peças.' : 'Fim da partida: seis jogadas seguidas sem pontuar.';
 }
 
+
+// Aplica uma jogada ja validada. `before` e o estado anterior (guardado para um eventual desafio).
+function applyPlay(s, seat, tiles, res, manual, before) {
+  const name = `Jogador ${seat + 1}`;
+  const rack = s.racks[seat].slice();
+  for (const t of tiles) {
+    const i = rack.indexOf(t.ch);
+    if (i < 0) return { error: 'Você não tem essas peças.' };
+    rack.splice(i, 1);
+  }
+  const snapshot = clone({ ...before, undo: null, vote: null });
+  for (const p of res.placed) s.board[p.r][p.c] = { l: p.l, blank: p.blank };
+  s.racks[seat] = rack;
+  fillRack(s, seat);
+  s.scores[seat] += res.total;
+  s.scoreless = 0;
+  s.vote = null;
+  s.last = { seat, kind: 'play', words: res.words, total: res.total, bingo: res.bingo, manual, cells: res.placed.map((p) => [p.r, p.c]) };
+  s.log = `${name} fez ${res.total} ponto${res.total === 1 ? '' : 's'}: ${res.words.map((w) => w.word).join(', ')}${res.bingo ? ' (bingo! +50)' : ''}${manual ? ' (aceita pelo grupo)' : ''}.`;
+  if (!s.racks[seat].length && !s.bag.length) { s.undo = null; finishGame(s, 'out'); return { state: s }; }
+  s.undo = snapshot;
+  s.turn = (seat + 1) % s.players;
+  return { state: s };
+}
+
+// Votacao: o desafio e a validacao manual so passam por maioria estrita de todos os jogadores; empate mantem o que o dicionario decidiu.
+function castVote(state, seat, req) {
+  const v = state.vote;
+  if (!v) return { error: 'Não há votação em andamento.' };
+  if (typeof req.ok !== 'boolean') return { error: 'Voto inválido.' };
+  if (v.votes[seat] !== undefined) return { error: 'Você já votou.' };
+  const s = clone(state);
+  s.vote.votes[seat] = req.ok;
+  const votes = s.vote.votes;
+  if (Object.keys(votes).length < s.players) return { state: s };
+  const yes = Object.values(votes).filter(Boolean).length;
+  const no = s.players - yes;
+  const half = s.players / 2;
+  if (v.kind === 'accept') {
+    if (yes > half) {
+      const res = evaluate(s, v.play, true);
+      if (res.error) { s.vote = null; s.log = res.error; return { state: s }; }
+      return applyPlay(s, v.author, v.play, res, true, state);
+    }
+    s.vote = null;
+    s.log = `O grupo não aceitou ${v.bad.join(', ')}. ${`Jogador ${v.author + 1}`} continua na vez.`;
+    return { state: s };
+  }
+  // desafio: "no" = jogada invalida
+  if (no > half) {
+    const back = clone(s.undo);
+    back.undo = null;
+    back.vote = null;
+    back.turn = (v.author + 1) % back.players;
+    back.last = { seat: v.author, kind: 'challenged', words: v.words };
+    back.log = `Desafio aceito: a jogada de Jogador ${v.author + 1} (${v.words.join(', ')}) foi desfeita e ele perde a vez.`;
+    return { state: back };
+  }
+  s.vote = null;
+  s.undo = null;
+  s.scoreless += 1;
+  s.last = { seat: v.seat, kind: 'lostchallenge' };
+  s.log = `Desafio recusado: Jogador ${v.seat + 1} perde a vez.`;
+  if (s.scoreless >= SCORELESS_LIMIT) { finishGame(s, 'stuck'); return { state: s }; }
+  s.turn = (v.seat + 1) % s.players;
+  return { state: s };
+}
+
 function move(state, seat, req) {
   if (!req || typeof req !== 'object') return { error: 'Jogada inválida.' };
 
@@ -298,12 +368,43 @@ function move(state, seat, req) {
   }
   if (state.phase !== 'playing') return { error: 'A partida terminou. Use "Nova partida" para jogar outra.' };
   if (!Number.isInteger(seat) || seat < 0 || seat >= state.players) return { error: 'Você não está jogando.' };
+
+  if (req.t === 'vote') return castVote(state, seat, req);
+  if (state.vote) return { error: 'Há uma votação em andamento. Aguarde o resultado.' };
   if (seat !== state.turn) return { error: 'Não é a sua vez.' };
 
   const s = clone(state);
   const name = `Jogador ${seat + 1}`;
 
+  if (req.t === 'challenge') {
+    if (!state.undo || !state.last || state.last.kind !== 'play') return { error: 'Não há jogada para desafiar.' };
+    if (state.last.manual) return { error: 'Essa jogada já foi aceita pelo grupo e não pode ser desafiada.' };
+    s.vote = { kind: 'challenge', seat, author: state.last.seat, words: state.last.words.map((w) => w.word), votes: { [seat]: false } };
+    s.log = `Jogador ${seat + 1} desafiou a jogada de Jogador ${state.last.seat + 1}.`;
+    return { state: s };
+  }
+
+  if (req.t === 'propose') {
+    const res = evaluate(s, req.tiles, true);
+    if (res.error) return { error: res.error };
+    if (!res.bad.length) return { error: 'O dicionário já aceita todas as palavras dessa jogada: use Jogar.' };
+    const rack = s.racks[seat].slice();
+    for (const t of req.tiles) {
+      const i = rack.indexOf(t.ch);
+      if (i < 0) return { error: 'Você não tem essas peças.' };
+      rack.splice(i, 1);
+    }
+    s.vote = {
+      kind: 'accept', seat, author: seat, words: res.words.map((w) => w.word), bad: res.bad,
+      tiles: res.placed.map((p) => ({ r: p.r, c: p.c, l: p.l, blank: p.blank })), play: req.tiles.map((t) => ({ r: t.r, c: t.c, ch: t.ch, as: t.as })),
+      votes: { [seat]: true },
+    };
+    s.log = `${name} pede para aceitar: ${res.bad.join(', ')}.`;
+    return { state: s };
+  }
+
   if (req.t === 'pass') {
+    s.undo = null;
     s.scoreless += 1;
     s.last = { seat, kind: 'pass' };
     s.log = `${name} passou.`;
@@ -322,6 +423,7 @@ function move(state, seat, req) {
       if (i < 0) return { error: 'Você não tem essas peças.' };
       rack.splice(i, 1);
     }
+    s.undo = null;
     s.racks[seat] = rack;
     fillRack(s, seat);
     s.bag.push(...give);
@@ -337,23 +439,7 @@ function move(state, seat, req) {
   if (req.t === 'play') {
     const res = evaluate(s, req.tiles);
     if (res.error) return { error: res.error };
-    // as pecas precisam estar no cavalete
-    const rack = s.racks[seat].slice();
-    for (const t of req.tiles) {
-      const i = rack.indexOf(t.ch);
-      if (i < 0) return { error: 'Você não tem essas peças.' };
-      rack.splice(i, 1);
-    }
-    for (const p of res.placed) s.board[p.r][p.c] = { l: p.l, blank: p.blank };
-    s.racks[seat] = rack;
-    fillRack(s, seat);
-    s.scores[seat] += res.total;
-    s.scoreless = 0;
-    s.last = { seat, kind: 'play', words: res.words, total: res.total, bingo: res.bingo, cells: res.placed.map((p) => [p.r, p.c]) };
-    s.log = `${name} fez ${res.total} ponto${res.total === 1 ? '' : 's'}: ${res.words.map((w) => w.word).join(', ')}${res.bingo ? ' (bingo! +50)' : ''}.`;
-    if (!s.racks[seat].length && !s.bag.length) { finishGame(s, 'out'); return { state: s }; }
-    s.turn = (seat + 1) % s.players;
-    return { state: s };
+    return applyPlay(s, seat, req.tiles, res, false, state);
   }
 
   return { error: 'Jogada inválida.' };
@@ -375,6 +461,13 @@ function view(state) {
     bagCount: state.bag.length,
     last: state.last,
     scoreless: state.scoreless,
+    challengeable: !ended && !state.vote && Boolean(state.undo) && Boolean(state.last && state.last.kind === 'play' && !state.last.manual),
+    vote: state.vote
+      ? {
+        kind: state.vote.kind, seat: state.vote.seat, author: state.vote.author, words: state.vote.words, bad: state.vote.bad || [],
+        tiles: state.vote.tiles || [], votes: Array.from({ length: state.players }, (_, i) => (state.vote.votes[i] === undefined ? null : state.vote.votes[i])),
+      }
+      : null,
     winners: ended ? state.winners : [],
     endBonus: ended ? state.endBonus : null,
     racks: ended ? state.racks : null,
@@ -391,9 +484,13 @@ function viewFor(state, seat) {
 
 // Piloto automatico: passa a vez (nao tenta formar palavras).
 function waitingOn(state) {
-  return state.phase === 'playing' ? [state.turn] : [];
+  if (state.phase !== 'playing') return [];
+  if (state.vote) return Array.from({ length: state.players }, (_, i) => i).filter((i) => state.vote.votes[i] === undefined);
+  return [state.turn];
 }
-function autoMove() {
+// Na votacao, quem esta no piloto automatico mantem o que o dicionario decidiu.
+function autoMove(state) {
+  if (state.vote) return { t: 'vote', ok: state.vote.kind === 'challenge' };
   return { t: 'pass' };
 }
 
