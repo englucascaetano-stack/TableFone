@@ -253,7 +253,7 @@ function evaluate(state, tiles) {
   }
 
   const bad = words.filter((w) => !isWord(w.word)).map((w) => upper(w.word));
-  if (bad.length) return { error: `Palavra não encontrada no dicionário: ${bad.join(', ')}.` };
+  if (bad.length) return { error: `Palavra não encontrada no dicionário: ${bad.join(', ')}. Palavras formadas nesta jogada: ${words.map((w) => upper(w.word)).join(', ')} (peças vizinhas a letras já postas também formam palavras).` };
 
   let total = words.reduce((a, w) => a + w.points, 0);
   const bingo = placed.length === RACK;

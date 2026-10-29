@@ -158,4 +158,15 @@ t('inicio, piloto automatico e nova partida', () => {
   assert.strictEqual(g.restart(s).phase, 'playing');
 });
 
+t('palavras cruzadas: peca ao lado de letra ja posta forma palavra extra e a mensagem lista todas', () => {
+  const s = started(2);
+  put(s, 'cem', 5, 7, 'v');
+  put(s, 'mijo', 7, 7, 'h');
+  s.turn = 0;
+  give(s, 0, ['v', 'r', 'a', 'a', 'a', 'a', 'a']);
+  // V em (6,8) fica ao lado do E (6,7) e R em (8,8) fecha "VIR" com o I (7,8)
+  const e = fail(s, 0, { t: 'play', tiles: [{ r: 6, c: 8, ch: 'v' }, { r: 8, c: 8, ch: 'r' }] });
+  assert.ok(/EV/.test(e) && /VIR/.test(e), e);
+});
+
 console.log(`\n${n} testes passaram.`);
