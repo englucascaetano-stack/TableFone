@@ -138,9 +138,9 @@ button.ghost {
 /* botoes: principal (preenchido), secundario (ghost) e destrutivo */
 button.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.status.turnbar { position: sticky; top: 0; z-index: 5; margin: 0 0 var(--s2); padding: var(--s2) var(--s3); border-radius: var(--r-ctl); background: var(--panel); border: 1px solid var(--line); text-align: center; font-weight: 600; }
+.status.turnbar { display: flex; align-items: center; justify-content: center; min-height: 3.1em; transition: background-color .2s, color .2s, border-color .2s; position: sticky; top: 0; z-index: 5; margin: 0 0 var(--s2); padding: var(--s2) var(--s3); border-radius: var(--r-ctl); background: var(--panel); border: 1px solid var(--line); text-align: center; font-weight: 600; }
 .status.turnbar.mine { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-.status.turnbar:empty { display: none; }
+.status.turnbar:empty { visibility: hidden; }
 
 .error { color: var(--danger); min-height: 1.4em; margin: 12px 0 0; }
 .muted { color: var(--muted); font-size: 0.9rem; }
@@ -770,7 +770,9 @@ body.is-tablet { overflow: hidden; }
 
 /* sala: codigo, lotacao, aviso do tablet */
 #room-code::before { content: 'Sala '; letter-spacing: 0; font-weight: 500; color: var(--muted); font-size: var(--fs-small); }
-.notice { margin: 0 0 var(--s2); padding: var(--s2) var(--s3); border-radius: var(--r-ctl); border: 1px solid var(--accent); background: var(--panel); text-align: center; font-size: var(--fs-small); }
+.notice { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 50; width: max-content; max-width: min(92vw, 520px); margin: 0; padding: var(--s2) var(--s3); border-radius: var(--r-ctl); border: 1px solid var(--accent); background: var(--panel); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); text-align: center; font-size: var(--fs-small); animation: notice-in .18s ease-out; pointer-events: none; }
+@keyframes notice-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .notice { animation: none; } }
 .lobby-code { display: grid; justify-items: center; gap: 2px; margin: var(--s3) 0; padding: var(--s3); border: 1px dashed var(--accent); border-radius: var(--r-panel); }
 .lobby-code small { color: var(--muted); }
 .lobby-code b { font-size: 2rem; letter-spacing: 0.35em; padding-left: 0.35em; color: var(--accent); }
