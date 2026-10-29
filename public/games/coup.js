@@ -27,9 +27,14 @@
   let loseIdx = null; // carta escolhida para perder
   let keepSet = new Set(); // cartas escolhidas para ficar na troca
   let seenVersion = null;
+  const fx = new Map(); // efeitos ativos (ver Motion.effect)
+  let fxRoom = null;
+  let prev = null; // { code, coins, rev } do ultimo estado desenhado, para animar so o que mudou
+  const reduced = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function charCard(c, opts = {}) {
-    const d = K.el('div', `ch ${c}${opts.sel ? ' sel' : ''}${opts.small ? ' small' : ''}`);
+    const d = K.el('div', `ch ${c}${opts.sel ? ' sel' : ''}${opts.small ? ' small' : ''}${opts.flip ? ' flip' : ''}`);
+    if (opts.mk) d.dataset.mk = `cp-${c}`;
     d.append(K.el('div', 'cn', CHAR[c].name));
     if (!opts.small) d.append(K.el('div', 'chint', CHAR[c].hint));
     return d;
@@ -68,6 +73,9 @@
     const st = v.step;
     const inGame = seat !== null && seat < v.players && mine;
     const wrap = K.el('div', 'mesa coup');
+    if (fxRoom !== room.code) { fx.clear(); fxRoom = room.code; }
+    const same = prev && prev.code === room.code && !reduced();
+    const E = (key, fresh) => (window.Motion ? Motion.effect(fx, key, Boolean(same && fresh)) : null);
 
     /* jogadores */
     // Modo tablet: o placar da mesa fica no tablet; o celular so lista os jogadores ao escolher um alvo.
@@ -81,9 +89,9 @@
       left.append(K.el('div', 'cpn', `${nameOf(s)}${s === seat ? ' (você)' : ''}${dead ? ' · eliminado' : ''}`));
       const cards = K.el('div', 'cpcards');
       for (let i = 0; i < v.influence[s]; i++) cards.append(K.el('div', 'ch back small'));
-      for (const c of v.revealed[s]) cards.append(charCard(c, { small: true }));
+      v.revealed[s].forEach((c, k) => cards.append(Motion.applyEffect(charCard(c, { small: true }), 'flip', E(`rev${s}.${k}`, prev && k >= (prev.rev[s] || 0)))));
       left.append(cards);
-      row.append(left, K.el('div', 'coins', `${v.coins[s]}`));
+      row.append(left, Motion.applyEffect(K.el('div', 'coins', `${v.coins[s]}`), 'bump', E(`coins${s}`, prev && prev.coins[s] !== v.coins[s])));
       if (targetable) {
         row.addEventListener('click', () => {
           const action = pickTarget;
@@ -93,6 +101,7 @@
       }
       list.append(row);
     }
+    prev = { code: room.code, coins: v.coins.slice(), rev: v.revealed.map((r) => r.length) };
     if (list.childNodes.length) wrap.append(list);
     else if (inGame) wrap.append(K.el('div', 'cpsit', `Suas moedas: ${v.coins[seat]} · Influência: ${v.influence[seat]}`));
 
@@ -124,7 +133,7 @@
       const myCards = K.el('div', 'hand');
       mine.hand.forEach((c, i) => {
         const sel = mine.mustLose && loseIdx === i;
-        const d = charCard(c, { sel });
+        const d = charCard(c, { sel, mk: true });
         if (mine.mustLose) d.addEventListener('click', () => { loseIdx = loseIdx === i ? null : i; render(el, room, send); });
         myCards.append(d);
       });
@@ -162,7 +171,7 @@
         el.append(K.el('div', 'logline', `Escolha ${mine.exchange.keep} carta${mine.exchange.keep > 1 ? 's' : ''} para ficar com você:`));
         const pool = K.el('div', 'hand');
         mine.exchange.pool.forEach((c, i) => {
-          const d = charCard(c, { sel: keepSet.has(i) });
+          const d = charCard(c, { sel: keepSet.has(i), mk: true });
           d.addEventListener('click', () => {
             if (keepSet.has(i)) keepSet.delete(i);
             else if (keepSet.size < mine.exchange.keep) keepSet.add(i);

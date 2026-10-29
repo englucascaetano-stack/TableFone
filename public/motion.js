@@ -86,5 +86,23 @@
     return result;
   }
 
-  window.Motion = { run, reset: () => { state = new WeakMap(); } };
+  // Efeito de CSS que sobrevive a redesenhos imediatos (o servidor costuma confirmar duas vezes): devolve ha quantos ms
+  // o efeito comecou, ou null se nao ha efeito ativo. `fresh` = a mudanca acabou de ser vista.
+  function effect(store, key, fresh, dur) {
+    const now = performance.now();
+    if (fresh && !reduced()) store.set(key, now);
+    const t = store.get(key);
+    if (t === undefined) return null;
+    const elapsed = now - t;
+    if (elapsed >= (dur || 650)) { store.delete(key); return null; }
+    return elapsed;
+  }
+  const applyEffect = (node, cls, elapsed) => {
+    if (elapsed === null) return node;
+    node.classList.add(cls);
+    node.style.animationDelay = `-${Math.round(elapsed)}ms`;
+    return node;
+  };
+
+  window.Motion = { run, effect, applyEffect, reset: () => { state = new WeakMap(); } };
 })();

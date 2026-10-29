@@ -9,6 +9,10 @@
   let sel = null; // palavra escolhida, aguardando confirmacao
   let seenVersion = null;
   let draft = { word: '', number: 1 };
+  const fx = new Map(); // efeitos ativos (ver Motion.effect)
+  let fxRoom = null;
+  let prev = null; // { code, rev: [bool], clue, left } do ultimo estado desenhado, para animar so o que mudou
+  const reduced = () => Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function render(el, room, send) {
     const v = room.view;
@@ -40,18 +44,24 @@
     const namesOf = (team) => room.players.filter((p) => p.seat % 2 === team && p.seat < v.players).map((p) => `${p.name}${p.seat < 2 ? ' (espião)' : ''}`).join(', ');
     const inGame = seat !== null && seat < v.players && mine;
     const wrap = K.el('div', 'mesa cn-wrap');
+    if (fxRoom !== room.code) { fx.clear(); fxRoom = room.code; }
+    const same = prev && prev.code === room.code && !reduced();
+    const E = (key, fresh) => (window.Motion ? Motion.effect(fx, key, Boolean(same && fresh)) : null);
 
     /* placar */
     const score = K.el('div', 'cn-score');
     for (const t of [0, 1]) {
       const box = K.el('div', `cn-team t${t}${v.team === t && !v.over ? ' on' : ''}`, `${TEAM[t]}: faltam ${v.left[t]}`);
+      Motion.applyEffect(box, 'bump', E(`left${t}`, prev && prev.left[t] !== v.left[t]));
       box.append(K.el('small', null, namesOf(t)));
       score.append(box);
     }
     wrap.append(score);
 
     /* pista */
+    const clueKey = v.over ? `fim${v.winner}` : v.clue ? `${v.clue.word},${v.clue.number}` : '';
     const clue = K.el('div', 'cn-clue');
+    Motion.applyEffect(clue, 'pop', E('clue', prev && prev.clue !== clueKey));
     if (v.over) {
       clue.textContent = v.cause === 'assassin' ? `Assassino! Vitória da equipe ${TEAM[v.winner]}.` : `Vitória da equipe ${TEAM[v.winner]}!`;
     } else if (v.clue) {
@@ -74,11 +84,13 @@
       if (canTap) cls += ' can';
       if (sel === i) cls += ' sel';
       const c = K.el('div', cls, w);
+      if (color) Motion.applyEffect(c, 'flip', E(`card${i}`, prev && !prev.rev[i]));
       if (canTap) c.addEventListener('click', () => { sel = sel === i ? null : i; render(el, room, send); });
       grid.append(c);
     });
     wrap.append(grid);
     el.append(wrap);
+    prev = { code: room.code, rev: v.colors.map(Boolean), clue: clueKey, left: v.left.slice() };
 
     /* controles */
     const box = K.el('div', 'ctrls');
