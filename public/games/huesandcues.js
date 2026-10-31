@@ -11,7 +11,9 @@
 
   let draft = null; // { r, c } casa escolhida para o proximo marcador
   let clueText = '';
-  let zoomed = false;
+  const ZMAX = 3;
+  let zoom = 1; // 1x = tabuleiro inteiro na largura da tela; 2x e 3x rolam para os lados e para baixo
+  let zoomFocus = null; // { rx, ry }: ponto (em proporcao) a manter no centro depois de mudar o zoom
   let seenVersion = null;
   let scrollPos = { x: 0, y: 0 };
 
@@ -99,14 +101,26 @@
     }
 
     /* tabuleiro */
-    const zoomBtn = K.el('button', 'ghost sc-zoom', zoomed ? 'Reduzir tabuleiro' : 'Ampliar tabuleiro');
-    zoomBtn.type = 'button';
-    zoomBtn.addEventListener('click', () => { zoomed = !zoomed; redraw(); });
-    wrap.append(zoomBtn);
+    const bar = K.el('div', 'hc-zoom');
+    const zbtn = (label, aria, delta) => {
+      const b = K.el('button', 'ghost', label);
+      b.type = 'button';
+      b.setAttribute('aria-label', aria);
+      b.disabled = zoom + delta < 1 || zoom + delta > ZMAX;
+      b.addEventListener('click', () => {
+        const sc = el.querySelector('.hc-scroll');
+        zoomFocus = sc && sc.scrollWidth ? { rx: (sc.scrollLeft + sc.clientWidth / 2) / sc.scrollWidth, ry: (sc.scrollTop + sc.clientHeight / 2) / sc.scrollHeight } : null;
+        zoom += delta;
+        redraw();
+      });
+      return b;
+    };
+    bar.append(zbtn('−', 'Diminuir zoom', -1), K.el('span', 'hc-zlbl', `Zoom ${zoom}x`), zbtn('+', 'Aumentar zoom', 1));
+    wrap.append(bar);
 
     const taken = new Map(v.tokens.map((t) => [`${t.r},${t.c}`, t]));
     const target = v.last ? v.last.target : null;
-    const scroller = K.el('div', `hc-scroll${zoomed ? ' zoomed' : ''}`);
+    const scroller = K.el('div', `hc-scroll z${zoom}`);
     const board = K.el('div', 'hc-board');
     board.setAttribute('role', 'grid');
     board.append(K.el('span', 'hc-ax'));
@@ -221,8 +235,24 @@
 
     el.append(wrap);
     // mantem o ponto de rolagem e o foco depois de redesenhar
-    scroller.scrollLeft = scrollPos.x;
-    scroller.scrollTop = scrollPos.y;
+    if (zoomFocus) {
+      // depois de mudar o zoom: mira na casa escolhida, ou mantem o mesmo ponto do tabuleiro no centro
+      const dc = draft && scroller.querySelector(`.hc-cell[data-r="${draft.r}"][data-c="${draft.c}"]`);
+      if (dc) {
+        const cr = dc.getBoundingClientRect();
+        const sr = scroller.getBoundingClientRect();
+        scroller.scrollLeft += cr.left - sr.left + cr.width / 2 - scroller.clientWidth / 2;
+        scroller.scrollTop += cr.top - sr.top + cr.height / 2 - scroller.clientHeight / 2;
+      } else {
+        scroller.scrollLeft = zoomFocus.rx * scroller.scrollWidth - scroller.clientWidth / 2;
+        scroller.scrollTop = zoomFocus.ry * scroller.scrollHeight - scroller.clientHeight / 2;
+      }
+      scrollPos = { x: scroller.scrollLeft, y: scroller.scrollTop };
+      zoomFocus = null;
+    } else {
+      scroller.scrollLeft = scrollPos.x;
+      scroller.scrollTop = scrollPos.y;
+    }
     if (hadFocus) { const i = el.querySelector('#hc-clue'); if (i) { i.focus(); const n = i.value.length; try { i.setSelectionRange(n, n); } catch (e) { /* tipo sem selecao */ } } }
     void key;
 

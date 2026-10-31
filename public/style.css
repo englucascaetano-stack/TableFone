@@ -848,14 +848,21 @@ body.is-tablet { overflow: hidden; }
 .hc-swatch.big { width: 100%; height: 36px; grid-row: auto; }
 .hc-scroll { overflow: auto; margin: 6px 0; border-radius: 8px; background: #111; padding: 2px; -webkit-overflow-scrolling: touch; }
 .hc-board { display: grid; grid-template-columns: 14px repeat(30, minmax(0, 1fr)); gap: 0; width: 100%; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
-.hc-scroll.zoomed .hc-board { grid-template-columns: 22px repeat(30, 30px); width: max-content; }
+.hc-scroll.z2 .hc-board { grid-template-columns: 16px repeat(30, minmax(0, 1fr)); width: 200%; }
+.hc-scroll.z3 .hc-board { grid-template-columns: 18px repeat(30, minmax(0, 1fr)); width: 300%; }
+.hc-scroll { max-height: 70vh; }
+.hc-zoom { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0; }
+.hc-zoom button { min-width: 52px; font-size: 1.3rem; padding: 6px 14px; }
+.hc-zlbl { min-width: 70px; text-align: center; font-weight: 700; }
 .hc-cell { position: relative; aspect-ratio: 1; min-width: 0; }
 .hc-ax { font-size: 8px; line-height: 1; color: #aaa; text-align: center; display: flex; align-items: center; justify-content: center; overflow: hidden; aspect-ratio: auto; min-height: 12px; }
-.hc-scroll.zoomed .hc-ax { font-size: 11px; min-height: 18px; }
+.hc-scroll.z2 .hc-ax { font-size: 10px; min-height: 16px; }
+.hc-scroll.z3 .hc-ax { font-size: 12px; min-height: 18px; }
 .hc-ax.on { color: #fff; font-weight: 800; background: #333; }
 .hc-tok { position: absolute; inset: 8%; z-index: 2; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px #000; font-size: 7px; font-weight: 800; line-height: 1; overflow: hidden; }
 .hc-tok.two { border-style: double; border-width: 3px; }
-.hc-scroll.zoomed .hc-tok { font-size: 13px; }
+.hc-scroll.z2 .hc-tok { font-size: 12px; }
+.hc-scroll.z3 .hc-tok { font-size: 17px; border-width: 2px; }
 .hc-tok.mini { position: static; inset: auto; width: 16px; height: 16px; flex: none; font-size: 9px; }
 .hc-target { position: absolute; inset: -30%; z-index: 3; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px #000, inset 0 0 0 2px #000; pointer-events: none; }
 .hc-draft { position: absolute; inset: -20%; z-index: 3; border: 2px dashed #fff; box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #000; border-radius: 3px; pointer-events: none; }
