@@ -21,6 +21,7 @@ Jogos na biblioteca:
 | Catan | 3 a 4 | Colonizar a ilha: dados, comércio com jogadores e banco, ladrão, cartas de desenvolvimento; vence com 10 pontos |
 | Scrabble | 2 a 4 | Palavras cruzadas em português (15x15, 120 peças, dicionário VERO); o servidor confere as palavras |
 | Azul | 2 a 4 | Montar a parede de mosaicos escolhendo azulejos das fábricas; pontuação por sequências |
+| Hues and Cues | 3 a 10 | Descrever cores com palavras num tabuleiro de 480 cores (30x16); dois marcadores por jogador por rodada; dador vê a cor em segredo |
 | Código Secreto | 4 a 8 | Duas equipes, espiões dão pistas de uma palavra; 332 palavras em português |
 
 As regras de cada jogo, com as premissas adotadas, estão no começo de `games/<id>/game.js` e na tela de espera de cada jogo.
@@ -100,7 +101,7 @@ Usa um identificador próprio, então o mesmo navegador pode ser jogador e table
 | Jogo | Tablet | Celular com tablet online |
 |---|---|---|
 | Uno, Truco, Caxeta, Buraco, BANG!, Coup | Mesa redonda com os jogadores em volta, monte, descarte, jogos baixados e histórico | Só a mão, os controles e o mínimo para decidir (carta do topo, descarte, jogos da própria dupla, alvos) |
-| Scrabble, Catan, Dama, Azul, Código Secreto, War, War II, Paciência | O tabuleiro ampliado, em modo "assistindo" | Igual ao normal (o toque no tabuleiro continua no celular) |
+| Scrabble, Catan, Dama, Azul, Código Secreto, Hues and Cues, War, War II, Paciência | O tabuleiro ampliado, em modo "assistindo" | Igual ao normal (o toque no tabuleiro continua no celular) |
 
 Para dar uma tela própria de tablet a outro jogo, registre `window.TableUI[<id>] = (elemento, sala) => texto` em `public/tablet.js`;
 para o celular mostrar só a mão, use `room.tableMode` na tela do jogo (`public/games/<id>.js`).
@@ -128,6 +129,7 @@ No servidor, o código do tablet fica só nos dados privados da sala e na tabela
     node test/azul.test.js
     node test/catan.test.js
     node test/scrabble.test.js
+    node test/huesandcues.test.js
     node test/bang.test.js
     node test/codenames.test.js
     node test/war.test.js

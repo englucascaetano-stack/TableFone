@@ -115,6 +115,15 @@ window.GameRules = {
       'Fim: o saco esvazia e alguém fica sem peças, ou 6 jogadas seguidas sem pontuar. Peças restantes descontam pontos.',
     ],
   },
+  huesandcues: {
+    goal: 'Descrever uma cor com palavras e colocar marcadores o mais perto possível da cor dos outros. 3 a 10 jogadores.',
+    items: [
+      'O dador vê em segredo uma cor do tabuleiro (colunas 1 a 30, linhas A a P) e dá uma pista de UMA palavra, sem citar nomes de cores nem a posição.',
+      'Cada outro jogador, em ordem, coloca um marcador onde acha que está a cor. Depois o dador dá uma segunda pista de até DUAS palavras e todos colocam o segundo marcador.',
+      'Pontos: casa exata 3, vizinha 2, a duas casas 1. O dador ganha 1 ponto por marcador na moldura 3x3 em volta do alvo (2 pontos com 3 jogadores).',
+      'Cada jogador é dador 2 vezes (1 vez com 7 ou mais jogadores). Vence quem tiver mais pontos. As cores da tela são aproximadas.',
+    ],
+  },
   war: {
     goal: 'Cumprir o seu objetivo secreto. 3 a 6 jogadores.',
     items: [
@@ -161,5 +170,6 @@ window.GameIcons = {
   scrabble: _svg('<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8.5 17l3.5-10 3.5 10M9.7 13.6h4.6"/>'),
   war: _svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17"/>'),
   war2: _svg('<circle cx="11" cy="13" r="7.5"/><path d="M3.5 13h15M11 5.5c2.7 2.8 2.7 12.2 0 15M11 5.5c-2.7 2.8-2.7 12.2 0 15M16 4l5 2-5 2z"/>'),
+  huesandcues: _svg('<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 9.2h17M3.5 14.8h17M9.2 3.5v17M14.8 3.5v17"/><circle cx="12" cy="12" r="2.2"/>'),
   paciencia: _svg('<rect x="4" y="4" width="7" height="10" rx="1.5"/><rect x="13" y="4" width="7" height="10" rx="1.5"/><rect x="4" y="16" width="7" height="4" rx="1"/><rect x="13" y="16" width="7" height="4" rx="1"/>'),
 };
