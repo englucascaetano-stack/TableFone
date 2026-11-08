@@ -124,6 +124,15 @@ window.GameRules = {
       'Cada jogador é dador 2 vezes (1 vez com 7 ou mais jogadores). Vence quem tiver mais pontos. As cores da tela são aproximadas.',
     ],
   },
+  ito: {
+    goal: 'Cooperativo: ordenar, todos juntos, as cartas secretas de 1 a 100 usando só pistas sobre um tema. 2 a 10 jogadores.',
+    items: [
+      'Cada jogador recebe em segredo uma carta de 1 a 100. O tema define uma escala (ex.: "tamanho de um animal", de minúsculo a gigantesco).',
+      'Cada um dá uma pista, sem números, que mostre se a sua carta é alta ou baixa nessa escala. Depois, todos ordenam as cartas da menor para a maior, sem vê-las, e confirmam.',
+      'Na revelação, se os números estiverem em ordem crescente a equipe vence a rodada. A cada vitória, mais um jogador passa a ter 2 cartas; vencer com todos de 2 cartas vence o jogo.',
+      'A equipe tem 3 vidas: rodada perdida custa 1 vida e repete a etapa. Sem vidas, a partida acaba.',
+    ],
+  },
   war: {
     goal: 'Cumprir o seu objetivo secreto. 3 a 6 jogadores.',
     items: [
@@ -171,5 +180,6 @@ window.GameIcons = {
   war: _svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17"/>'),
   war2: _svg('<circle cx="11" cy="13" r="7.5"/><path d="M3.5 13h15M11 5.5c2.7 2.8 2.7 12.2 0 15M11 5.5c-2.7 2.8-2.7 12.2 0 15M16 4l5 2-5 2z"/>'),
   huesandcues: _svg('<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 9.2h17M3.5 14.8h17M9.2 3.5v17M14.8 3.5v17"/><circle cx="12" cy="12" r="2.2"/>'),
+  ito: _svg('<rect x="3.5" y="11" width="5" height="8" rx="1"/><rect x="9.5" y="7.5" width="5" height="11.5" rx="1"/><rect x="15.5" y="4" width="5" height="15" rx="1"/>'),
   paciencia: _svg('<rect x="4" y="4" width="7" height="10" rx="1.5"/><rect x="13" y="4" width="7" height="10" rx="1.5"/><rect x="4" y="16" width="7" height="4" rx="1"/><rect x="13" y="16" width="7" height="4" rx="1"/>'),
 };

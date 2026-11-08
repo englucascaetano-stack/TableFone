@@ -872,3 +872,31 @@ body.is-tablet { overflow: hidden; }
 .hc-pad button { padding: 8px 0; }
 .hc-result { display: grid; gap: 4px; margin: 8px 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 0.85rem; }
 .hc-result button { margin-top: 6px; }
+
+/* Ito */
+.it-wrap { max-width: 520px; margin: 0 auto; }
+.it-hud { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0; font-size: 0.85rem; color: var(--muted); }
+.it-lives { color: var(--accent); font-weight: 700; letter-spacing: 2px; }
+.it-theme { margin: 6px 0; padding: 10px; border: 1px solid var(--accent); border-radius: 10px; background: var(--panel); text-align: center; }
+.it-scale { margin-top: 4px; font-size: 0.8rem; color: var(--muted); }
+.it-mycard { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; margin: 8px 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.it-mycard input { grid-column: 2; width: 100%; box-sizing: border-box; }
+.it-mycard button { grid-column: 1 / -1; }
+.it-done { font-weight: 700; }
+.it-num { display: inline-flex; align-items: center; justify-content: center; min-width: 52px; padding: 6px 8px; border-radius: 8px; background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: 1.4rem; }
+.it-num.rev { background: #f4ead2; color: #1c1a17; }
+.it-end { text-align: center; font-size: 0.72rem; letter-spacing: 1px; color: var(--muted); margin: 8px 0 4px; }
+.it-line { display: grid; gap: 6px; }
+.it-tile { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.it-tile.mine { border-color: var(--accent); }
+.it-tile.ok { border-color: #5fae6a; }
+.it-tile.bad { border-color: #d0675a; background: rgba(208, 103, 90, 0.15); }
+.it-pos { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg); font-size: 0.75rem; color: var(--muted); }
+.it-info { min-width: 0; display: grid; }
+.it-info b { overflow-wrap: anywhere; }
+.it-info small { color: var(--muted); }
+.it-mv { display: flex; gap: 4px; }
+.it-mv button { padding: 6px 12px; min-height: 40px; }
+.it-result { margin: 10px 0; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); display: grid; gap: 8px; text-align: center; }
+.it-result.win { border-color: #5fae6a; }
+.it-result.lose { border-color: #d0675a; }
